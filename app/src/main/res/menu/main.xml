@@ -1,0 +1,28 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    tools:ignore="AppCompatResource">
+    <item
+        android:id="@+id/secure_connect_scan"
+        android:icon="@drawable/ic_action_device_access_bluetooth_searching"
+        app:showAsAction="ifRoom"
+        android:title="@string/secure_connect"/>
+
+    <item
+        android:id="@+id/insecure_connect_scan"
+        app:showAsAction="never"
+        android:title="@string/insecure_connect"/>
+
+    <item
+        android:id="@+id/discoverable"
+        app:showAsAction="never"
+        android:title="@string/discoverable"/>
+
+    <item
+        android:id="@+id/permission"
+        app:showAsAction="never"
+        android:title="@string/get_permission"/>
+    <!--<item android:id="@+id/menu_toggle_log"-->
+    <!--android:showAsAction="always"-->
+    <!--android:title="@string/sample_show_log" />-->
+</menu>
