@@ -49,6 +49,8 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import com.mats.bluetooth.listeners.SmsListener;
+
 import java.util.ArrayList;
 
 
@@ -71,9 +73,11 @@ public class MasterFragment extends Fragment {
     private final int GET_SMS_READ_PERMISSION = 1;
     private final int GET_SMS_SEND_PERMISSION = 2;
     private final int GET_CONTACTS_PERMISSION = 3;
+    private final int GET_COARSE_LOCATION_PERMISSION = 4;
     private int READ_SMS_PERMISSION = 0;
     private int SEND_SMS_PERMISSION = 0;
     private int CONTACT_PERMISSION = 0;
+    private int LOCATION_PERMISSION = 0;
 
     /**
      * Name of the connected device
@@ -100,12 +104,20 @@ public class MasterFragment extends Fragment {
      */
     private BluetoothService mChatService = null;
 
+    /**
+     * SMS Broadcast Receiver
+     */
+
+    private SmsListener smsListener;
+
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
         // Get local Bluetooth adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        smsListener = new SmsListener(/*BuildConfig.SERVICE_NUMBER, BuildConfig.SERVICE_CONDITION*/);
 
         // If the adapter is null, then Bluetooth is not supported
         if (mBluetoothAdapter == null) {
@@ -178,6 +190,22 @@ public class MasterFragment extends Fragment {
      */
     private void setupChat() {
 //        Log.d(TAG, "setupChat()");
+
+        smsListener.setListener(new SmsListener.Listener() {
+            @Override
+            public void onTextReceived(String text) {
+                Log.d(TAG, "onTextReceived: " + text);
+            }
+        });
+
+//        smsListener.setListener(new SmsListener.Listener(
+//                {
+//        @Override
+//        public void onTextReceived (String text){
+//            // Do stuff with received text!
+//        }
+//});
+
 
         // Initialize the array adapter for the conversation thread
         mConversationArrayAdapter = new ArrayAdapter<String>(getActivity(), R.layout.message);
@@ -384,7 +412,7 @@ public class MasterFragment extends Fragment {
         }
     };
 
-    private void sendSMS(String message){
+    private void sendSMS(String message) {
 
         if (SEND_SMS_PERMISSION == 1) {
 
@@ -452,7 +480,6 @@ public class MasterFragment extends Fragment {
     }
 
 
-
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
@@ -485,32 +512,32 @@ public class MasterFragment extends Fragment {
     public String getContactName(final String phoneNumber, Context context) {
 
 
-            String out = phoneNumber;
+        String out = phoneNumber;
 
-            if(CONTACT_PERMISSION == 1){
-                Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber));
+        if (CONTACT_PERMISSION == 1) {
+            Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber));
 
-                String[] projection = new String[]{ContactsContract.PhoneLookup.DISPLAY_NAME};
+            String[] projection = new String[]{ContactsContract.PhoneLookup.DISPLAY_NAME};
 
-                String contactName = "";
-                Cursor cursor = context.getContentResolver().query(uri, projection, null, null, null);
+            String contactName = "";
+            Cursor cursor = context.getContentResolver().query(uri, projection, null, null, null);
 
-                if (cursor != null) {
-                    if (cursor.moveToFirst()) {
-                        contactName = cursor.getString(0);
-                    }
-                    cursor.close();
-//                    Log.d(TAG, "getContactName:" + contactName + ".");
-                    if (contactName == "") {
-                        out = phoneNumber;
-                    } else {
-                        out = contactName;
-                    }
+            if (cursor != null) {
+                if (cursor.moveToFirst()) {
+                    contactName = cursor.getString(0);
                 }
-            } else {
-                out = phoneNumber;
+                cursor.close();
+//                    Log.d(TAG, "getContactName:" + contactName + ".");
+                if (contactName == "") {
+                    out = phoneNumber;
+                } else {
+                    out = contactName;
+                }
             }
-            return out;
+        } else {
+            out = phoneNumber;
+        }
+        return out;
     }
 
     private void checkPermission() {
@@ -524,8 +551,7 @@ public class MasterFragment extends Fragment {
                 }
                 requestPermissions(
                         new String[]{Manifest.permission.READ_SMS}, GET_SMS_READ_PERMISSION);
-            }
-            else {
+            } else {
                 READ_SMS_PERMISSION = 1;
             }
 
@@ -537,8 +563,7 @@ public class MasterFragment extends Fragment {
                 }
                 requestPermissions(
                         new String[]{Manifest.permission.SEND_SMS}, GET_SMS_SEND_PERMISSION);
-            }
-            else {
+            } else {
                 SEND_SMS_PERMISSION = 1;
             }
 
@@ -552,6 +577,18 @@ public class MasterFragment extends Fragment {
                         new String[]{Manifest.permission.READ_CONTACTS}, GET_CONTACTS_PERMISSION);
             } else {
                 CONTACT_PERMISSION = 1;
+            }
+
+            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED) {
+                if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
+                        Manifest.permission.ACCESS_COARSE_LOCATION)) {
+            /* do nothing*/
+                }
+                requestPermissions(
+                        new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, GET_COARSE_LOCATION_PERMISSION);
+            } else {
+                LOCATION_PERMISSION = 1;
             }
         }
 
