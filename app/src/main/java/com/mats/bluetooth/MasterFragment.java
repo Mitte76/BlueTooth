@@ -120,16 +120,16 @@ public class MasterFragment extends Fragment implements Listener{
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
         // Get local Bluetooth adapter
-        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        // If the adapter is null, then Bluetooth is not supported
-        if (mBluetoothAdapter == null) {
-            FragmentActivity activity = getActivity();
-            Toast.makeText(activity, "Bluetooth is not available", Toast.LENGTH_LONG).show();
-            activity.finish();
-        }
-
-        mSmsListener = new SmsListener();
-        mSmsListener.setListener(this);
+//        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+//        // If the adapter is null, then Bluetooth is not supported
+//        if (mBluetoothAdapter == null) {
+//            FragmentActivity activity = getActivity();
+//            Toast.makeText(activity, "Bluetooth is not available", Toast.LENGTH_LONG).show();
+//            activity.finish();
+//        }
+//
+//        mSmsListener = new SmsListener();
+//        mSmsListener.setListener(this);
 
 
 
@@ -151,15 +151,15 @@ public class MasterFragment extends Fragment implements Listener{
             checkPermission(getContext(), PERMISSIONS);
         }
 
-        // If BT is not on, request that it be enabled.
-        // setupChat() will then be called during onActivityResult
-        if (!mBluetoothAdapter.isEnabled()) {
-            Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
-            // Otherwise, setup the chat session
-        } else if (mChatService == null) {
-            setupChat();
-        }
+//        // If BT is not on, request that it be enabled.
+//        // setupChat() will then be called during onActivityResult
+//        if (!mBluetoothAdapter.isEnabled()) {
+//            Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+//            startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
+//            // Otherwise, setup the chat session
+//        } else if (mChatService == null) {
+//            setupChat();
+//        }
     }
 
     @Override
@@ -179,13 +179,13 @@ public class MasterFragment extends Fragment implements Listener{
         // Performing this check in onResume() covers the case in which BT was
         // not enabled during onStart(), so we were paused to enable it...
         // onResume() will be called when ACTION_REQUEST_ENABLE activity returns.
-        if (mChatService != null) {
-            // Only if the state is STATE_NONE, do we know that we haven't started already
-            if (mChatService.getState() == BluetoothService.STATE_NONE) {
-                // Start the Bluetooth chat services
-                mChatService.start();
-            }
-        }
+//        if (mChatService != null) {
+//            // Only if the state is STATE_NONE, do we know that we haven't started already
+//            if (mChatService.getState() == BluetoothService.STATE_NONE) {
+//                // Start the Bluetooth chat services
+//                mChatService.start();
+//            }
+//        }
     }
 
     @Override
@@ -201,6 +201,35 @@ public class MasterFragment extends Fragment implements Listener{
         mOffButton = (Button) view.findViewById(R.id.button_off);
         mOnButton = (Button) view.findViewById(R.id.button_on);
         ((AppCompatActivity) getActivity()).getSupportActionBar().show();
+
+
+        mOffButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                // Send a message using content of the edit text widget
+                View view = getView();
+
+//
+//                mChatService.stop();
+//                mBluetoothAdapter.cancelDiscovery();
+                getActivity().stopService(new Intent(getActivity(), BtService.class));
+
+
+            }
+        });
+
+        mOnButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                // Send a message using content of the edit text widget
+                View view = getView();
+
+//
+//                mChatService.stop();
+//                mBluetoothAdapter.cancelDiscovery();
+                getActivity().startService(new Intent(getActivity(), BtService.class));
+
+
+            }
+        });
 
     }
 
