@@ -38,13 +38,15 @@ public class BtService extends Service implements Listener {
     private static final String TAG = "BtService";
     private ConnectingThread mConnectingThread;
     private ConnectedThread mConnectedThread;
+    private String SLAVE_MAC;
 
     private boolean stopThread;
     // SPP UUID service - this should work for most devices
     private static final UUID BTMODULEUUID = UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66");
     //    private static final UUID BTMODULEUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     // String for MAC address
-    private static final String MAC_ADDRESS = "DC:66:72:B7:BB:48";
+//    private static final String MAC_ADDRESS = "DC:66:72:B7:BB:48";
+    private static String MAC_ADDRESS;
 
     private StringBuilder recDataString = new StringBuilder();
 
@@ -54,8 +56,9 @@ public class BtService extends Service implements Listener {
         Log.d("BT SERVICE", "SERVICE CREATED");
         stopThread = false;
 
-        Intent notificationIntent = new Intent(this, MasterFragment.class);
+        Intent notificationIntent = new Intent(this, MainActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0,
+//                new Intent(this, MainActivity.class), 0);
                 notificationIntent, 0);
 
         Notification notification = new NotificationCompat.Builder(this)
@@ -63,16 +66,16 @@ public class BtService extends Service implements Listener {
                 .setContentTitle("BT Master")
                 .setContentText("Waiting for stuff to do.")
                 .setContentIntent(pendingIntent).build();
-
-        startForeground(1337, notification);
+        startForeground(1, notification);
 
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d("BT SERVICE", "SERVICE STARTED");
-
-
+        if (intent != null && intent.getExtras() != null) {
+            MAC_ADDRESS = intent.getExtras().getString("mac_address");
+        }
         bluetoothIn = new Handler() {
 
             public void handleMessage(android.os.Message msg) {

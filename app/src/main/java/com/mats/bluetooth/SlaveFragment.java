@@ -175,7 +175,7 @@ public class SlaveFragment extends Fragment implements AddingTaskDialogFragment2
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
         mConversationView = (ListView) view.findViewById(R.id.in);
 //        mOutEditText = (EditText) view.findViewById(R.id.edit_text_out);
-        mSendButton = (Button) view.findViewById(R.id.button_send);
+//        mSendButton = (Button) view.findViewById(R.id.button_send);
         ((AppCompatActivity) getActivity()).getSupportActionBar().show();
     }
 
@@ -340,7 +340,7 @@ public class SlaveFragment extends Fragment implements AddingTaskDialogFragment2
                         case BluetoothService.STATE_CONNECTED:
                             setStatus(getString(R.string.title_connected_to_master, mConnectedDeviceName));
                             mConversationArrayAdapter.clear();
-//                            Log.d(TAG, "handleMessage:  ddddddddddddddddddddddddddd"+ R.string.title_connected_to_master + mConnectedDeviceName);
+                            Log.d(TAG, "handleMessage:  ddddddddddddddddddddddddddd"+ R.string.title_connected_to_master + mConnectedDeviceName);
 
                             break;
                         case BluetoothService.STATE_CONNECTING:
@@ -379,7 +379,7 @@ public class SlaveFragment extends Fragment implements AddingTaskDialogFragment2
                             String requiredString = list.get(j).substring(list.get(j).indexOf("(|") + 2, list.get(j).indexOf("|)"));
                             String test = list.get(j).replaceAll("\\(\\|.*\\|\\)", "");
                             Log.d(TAG, "handleMessage:eeeeeeeeee " + test);
-                            mConversationArrayAdapter.add(test.substring(0, test.length() - 1));
+                            mConversationArrayAdapter.add(test.substring(0, test.length() - 2));
                             mConversationNumberArrayAdapter.add(requiredString);
                             Log.d(TAG, "handleMessage: 2" + j + " " + /*(list.size() - 1) + list.get(j).toString()*/ mConversationNumberArrayAdapter.toString());
 //                            getContactName(number, getContext());

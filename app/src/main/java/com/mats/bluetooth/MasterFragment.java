@@ -29,6 +29,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.provider.ContactsContract;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
@@ -44,13 +45,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.EditText;
-import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
-//import com.mats.bluetooth.listeners.SmsListener;
-
-import com.mats.bluetooth.listeners.SmsListener;
 import com.mats.bluetooth.listeners.SmsListener.Listener;
 
 import java.util.ArrayList;
@@ -59,19 +56,18 @@ import java.util.ArrayList;
 /**
  * This fragment controls Bluetooth to communicate with other devices.
  */
-public class MasterFragment extends Fragment implements Listener{
+public class MasterFragment extends Fragment implements Listener {
 
     private static final String TAG = "MasterFragment";
-
+    private String SLAVE_MAC;
     // Intent request codes
     private static final int REQUEST_CONNECT_DEVICE_SECURE = 1;
     private static final int REQUEST_CONNECT_DEVICE_INSECURE = 2;
     private static final int REQUEST_ENABLE_BT = 3;
 
     // Layout Views
-    private ListView mConversationView;
-    private EditText mOutEditText;
-    private Button mSendButton, mOffButton,mOnButton;
+    private Button mOffButton, mOnButton;
+    private TextView infoText;
     private final int GET_SMS_PERMISSION = 1;
     private final int GET_CONTACT_PERMISSION = 2;
     private final int GET_LOCATION_PERMISSION = 3;
@@ -112,7 +108,6 @@ public class MasterFragment extends Fragment implements Listener{
     /**
      * Listener for new sms
      */
-    private SmsListener mSmsListener;
 
 
     @Override
@@ -120,27 +115,13 @@ public class MasterFragment extends Fragment implements Listener{
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
         // Get local Bluetooth adapter
-//        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-//        // If the adapter is null, then Bluetooth is not supported
-//        if (mBluetoothAdapter == null) {
-//            FragmentActivity activity = getActivity();
-//            Toast.makeText(activity, "Bluetooth is not available", Toast.LENGTH_LONG).show();
-//            activity.finish();
-//        }
-//
-//        mSmsListener = new SmsListener();
-//        mSmsListener.setListener(this);
-
-
-
-//        SmsListener.setListener(new SmsListener.Listener() {
-//            @Override
-//            public void onTextReceived(String text) {
-//                Toast.makeText(getActivity(), "Hubbabubba " + text, Toast.LENGTH_SHORT).show();
-//
-//            }
-//        });
-
+        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        // If the adapter is null, then Bluetooth is not supported
+        if (mBluetoothAdapter == null) {
+            FragmentActivity activity = getActivity();
+            Toast.makeText(activity, "Bluetooth is not available", Toast.LENGTH_LONG).show();
+            activity.finish();
+        }
     }
 
 
@@ -151,15 +132,13 @@ public class MasterFragment extends Fragment implements Listener{
             checkPermission(getContext(), PERMISSIONS);
         }
 
-//        // If BT is not on, request that it be enabled.
-//        // setupChat() will then be called during onActivityResult
-//        if (!mBluetoothAdapter.isEnabled()) {
-//            Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-//            startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
-//            // Otherwise, setup the chat session
-//        } else if (mChatService == null) {
-//            setupChat();
-//        }
+        // If BT is not on, request that it be enabled.
+        // setupChat() will then be called during onActivityResult
+        if (!mBluetoothAdapter.isEnabled()) {
+            Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
+        }
+
     }
 
     @Override
@@ -196,23 +175,24 @@ public class MasterFragment extends Fragment implements Listener{
 
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
-        mConversationView = (ListView) view.findViewById(R.id.in);
-        mSendButton = (Button) view.findViewById(R.id.button_send);
         mOffButton = (Button) view.findViewById(R.id.button_off);
         mOnButton = (Button) view.findViewById(R.id.button_on);
-        ((AppCompatActivity) getActivity()).getSupportActionBar().show();
+        infoText = (TextView) view.findViewById(R.id.info);
 
+        AppCompatActivity activity = (AppCompatActivity) getActivity();
+        if (activity.getSupportActionBar() != null) {
+            activity.getSupportActionBar().show();
+        }
+
+        infoText.setText(R.string.select_bt_msg);
 
         mOffButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 View view = getView();
 
-//
-//                mChatService.stop();
-//                mBluetoothAdapter.cancelDiscovery();
                 getActivity().stopService(new Intent(getActivity(), BtService.class));
-
+                infoText.setText(R.string.service_stopped);
 
             }
         });
@@ -225,83 +205,27 @@ public class MasterFragment extends Fragment implements Listener{
 //
 //                mChatService.stop();
 //                mBluetoothAdapter.cancelDiscovery();
-                getActivity().startService(new Intent(getActivity(), BtService.class));
 
+                if (!mBluetoothAdapter.isEnabled()) {
+                    Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                    startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
+                } else {
+                    if (SLAVE_MAC != null) {
+                        Intent service = new Intent(getActivity(), BtService.class);
+                        service.putExtra("mac_address", SLAVE_MAC);
+                        getActivity().startService(service);
+                        infoText.setText(R.string.service_started);
+                    } else {
+                        Toast.makeText(getActivity(), R.string.select_bt_first, Toast.LENGTH_SHORT).show();
 
-            }
-        });
-
-    }
-
-    /**
-     * Set up the UI and background operations for chat.
-     */
-    private void setupChat() {
-
-
-        // Initialize the array adapter for the conversation thread
-        mConversationArrayAdapter = new ArrayAdapter<String>(getActivity(), R.layout.message);
-
-        mConversationView.setAdapter(mConversationArrayAdapter);
-
-        // Initialize the compose field with a listener for the return key
-//        mOutEditText.setOnEditorActionListener(mWriteListener);
-
-        // Initialize the send button with a listener that for click events
-        mSendButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                // Send a message using content of the edit text widget
-                View view = getView();
-                if (null != view) {
-//                    TextView textView = (TextView) view.findViewById(R.id.edit_text_out);
-//                    String message = textView.getText().toString();
-                    sendMessage();
-                    Log.d(TAG, "onClick: ");
+                    }
                 }
-            }
-        });
-
-
-        mOffButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                // Send a message using content of the edit text widget
-                View view = getView();
-
-//
-//                mChatService.stop();
-//                mBluetoothAdapter.cancelDiscovery();
-                getActivity().stopService(new Intent(getActivity(), BtService.class));
 
 
             }
         });
-
-        mOnButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                // Send a message using content of the edit text widget
-                View view = getView();
-
-//
-//                mChatService.stop();
-//                mBluetoothAdapter.cancelDiscovery();
-                getActivity().startService(new Intent(getActivity(), BtService.class));
-
-
-            }
-        });
-
-
-        // Initialize the BluetoothService to perform bluetooth connections
-        mChatService = new BluetoothService(getActivity(), mHandler);
-
-        // Initialize the buffer for outgoing messages
-        mOutStringBuffer = new StringBuffer("");
-
 
     }
-
-
-
 
 
     /**
@@ -338,9 +262,8 @@ public class MasterFragment extends Fragment implements Listener{
             Cursor cursor = getActivity().getContentResolver().query(Uri.parse("content://sms/inbox?simple=true"), null, "read = 0", null, null);
             Log.d(TAG, "sendMessage: ");
 
-            if (cursor.moveToFirst()) { // must check the result to prevent exception
-                int i = 0;
-                ArrayList<String> mArrayList = new ArrayList<String>();
+            if (cursor != null && cursor.moveToFirst()) { // must check the result to prevent exception
+                ArrayList<String> mArrayList = new ArrayList<>();
                 do {
                     if (cursor.getInt(7) == 0) {
 //                        Log.d(TAG, "sendMessage: " + cursor.getCount());
@@ -351,7 +274,6 @@ public class MasterFragment extends Fragment implements Listener{
                     } else {
                         Log.d(TAG, "sendMessage: Redan läst: " + cursor.getString(7));
                     }
-                    i++;
 //                    cursor.moveToNext();
 
 
@@ -384,20 +306,6 @@ public class MasterFragment extends Fragment implements Listener{
 
 //    }
 
-    /**
-     * The action listener for the EditText widget, to listen for the return key
-     */
-//    private TextView.OnEditorActionListener mWriteListener
-//            = new TextView.OnEditorActionListener() {
-//        public boolean onEditorAction(TextView view, int actionId, KeyEvent event) {
-//            // If the action is a key-up event on the return key, send the message
-//            if (actionId == EditorInfo.IME_NULL && event.getAction() == KeyEvent.ACTION_UP) {
-//                String message = view.getText().toString();
-//                sendMessage(/*message*/);
-//            }
-//            return true;
-//        }
-//    };
 
     /**
      * Updates the status on the action bar.
@@ -405,15 +313,10 @@ public class MasterFragment extends Fragment implements Listener{
      * @param resId a string resource ID
      */
     private void setStatus(int resId) {
-        FragmentActivity activity = getActivity();
-        if (null == activity) {
-            return;
+        AppCompatActivity activity = (AppCompatActivity) getActivity();
+        if (activity.getSupportActionBar() != null) {
+            activity.getSupportActionBar().setSubtitle(resId);
         }
-        final android.support.v7.app.ActionBar actionBar = ((AppCompatActivity) getActivity()).getSupportActionBar();
-        if (null == actionBar) {
-            return;
-        }
-        ((AppCompatActivity) getActivity()).getSupportActionBar().setSubtitle(resId);
     }
 
     /**
@@ -422,15 +325,11 @@ public class MasterFragment extends Fragment implements Listener{
      * @param subTitle status
      */
     private void setStatus(CharSequence subTitle) {
-        FragmentActivity activity = getActivity();
-        if (null == activity) {
-            return;
+        AppCompatActivity activity = (AppCompatActivity) getActivity();
+
+        if (activity.getSupportActionBar() != null) {
+            activity.getSupportActionBar().setSubtitle(subTitle);
         }
-        final android.support.v7.app.ActionBar actionBar = ((AppCompatActivity) getActivity()).getSupportActionBar();
-        if (null == actionBar) {
-            return;
-        }
-        actionBar.setSubtitle(subTitle);
     }
 
     @Override
@@ -445,61 +344,61 @@ public class MasterFragment extends Fragment implements Listener{
 //        }
 
     }
-
-    /**
-     * The Handler that gets information back from the BluetoothService
-     */
-    private final Handler mHandler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            FragmentActivity activity = getActivity();
-            switch (msg.what) {
-                case Constants.MESSAGE_STATE_CHANGE:
-                    switch (msg.arg1) {
-                        case BluetoothService.STATE_CONNECTED:
-                            setStatus(getString(R.string.title_connected_to_slave, mConnectedDeviceName));
-                            mConversationArrayAdapter.clear();
-                            break;
-                        case BluetoothService.STATE_CONNECTING:
-                            setStatus(R.string.title_connecting);
-                            break;
-                        case BluetoothService.STATE_LISTEN:
-                        case BluetoothService.STATE_NONE:
-                            setStatus(R.string.title_not_connected);
-                            break;
-                    }
-                    break;
-                case Constants.MESSAGE_WRITE:
-                    byte[] writeBuf = (byte[]) msg.obj;
-                    // construct a string from the buffer
-                    String writeMessage = new String(writeBuf);
-//                    mConversationArrayAdapter.add("Me:  " + writeMessage);
-                    break;
-                case Constants.MESSAGE_READ:
-                    byte[] readBuf = (byte[]) msg.obj;
-                    // construct a string from the valid bytes in the buffer
-                    String readMessage = new String(readBuf, 0, msg.arg1);
-                    Toast.makeText(activity, readMessage,
-                            Toast.LENGTH_SHORT).show();
-                    sendSMS(readMessage);
-                    break;
-                case Constants.MESSAGE_DEVICE_NAME:
-                    // save the connected device's name
-                    mConnectedDeviceName = msg.getData().getString(Constants.DEVICE_NAME);
-                    if (null != activity) {
-                        Toast.makeText(activity, "Connected to "
-                                + mConnectedDeviceName, Toast.LENGTH_SHORT).show();
-                    }
-                    break;
-                case Constants.MESSAGE_TOAST:
-                    if (null != activity) {
-                        Toast.makeText(activity, msg.getData().getString(Constants.TOAST),
-                                Toast.LENGTH_SHORT).show();
-                    }
-                    break;
-            }
-        }
-    };
+//
+//    /**
+//     * The Handler that gets information back from the BluetoothService
+//     */
+//    private final Handler mHandler = new Handler() {
+//        @Override
+//        public void handleMessage(Message msg) {
+//            FragmentActivity activity = getActivity();
+//            switch (msg.what) {
+//                case Constants.MESSAGE_STATE_CHANGE:
+//                    switch (msg.arg1) {
+//                        case BluetoothService.STATE_CONNECTED:
+//                            setStatus(getString(R.string.title_connected_to_slave, mConnectedDeviceName));
+//                            mConversationArrayAdapter.clear();
+//                            break;
+//                        case BluetoothService.STATE_CONNECTING:
+//                            setStatus(R.string.title_connecting);
+//                            break;
+//                        case BluetoothService.STATE_LISTEN:
+//                        case BluetoothService.STATE_NONE:
+//                            setStatus(R.string.title_not_connected);
+//                            break;
+//                    }
+//                    break;
+//                case Constants.MESSAGE_WRITE:
+//                    byte[] writeBuf = (byte[]) msg.obj;
+//                    // construct a string from the buffer
+//                    String writeMessage = new String(writeBuf);
+////                    mConversationArrayAdapter.add("Me:  " + writeMessage);
+//                    break;
+//                case Constants.MESSAGE_READ:
+//                    byte[] readBuf = (byte[]) msg.obj;
+//                    // construct a string from the valid bytes in the buffer
+//                    String readMessage = new String(readBuf, 0, msg.arg1);
+//                    Toast.makeText(activity, readMessage,
+//                            Toast.LENGTH_SHORT).show();
+//                    sendSMS(readMessage);
+//                    break;
+//                case Constants.MESSAGE_DEVICE_NAME:
+//                    // save the connected device's name
+//                    mConnectedDeviceName = msg.getData().getString(Constants.DEVICE_NAME);
+//                    if (null != activity) {
+//                        Toast.makeText(activity, "Connected to "
+//                                + mConnectedDeviceName, Toast.LENGTH_SHORT).show();
+//                    }
+//                    break;
+//                case Constants.MESSAGE_TOAST:
+//                    if (null != activity) {
+//                        Toast.makeText(activity, msg.getData().getString(Constants.TOAST),
+//                                Toast.LENGTH_SHORT).show();
+//                    }
+//                    break;
+//            }
+//        }
+//    };
 
     private void sendSMS(String message) {
 
@@ -520,22 +419,23 @@ public class MasterFragment extends Fragment implements Listener{
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
             case REQUEST_CONNECT_DEVICE_SECURE:
-                // When DeviceListActivity returns with a device to connect
                 if (resultCode == Activity.RESULT_OK) {
-                    connectDevice(data, true);
+                    SLAVE_MAC = data.getExtras().getString(DeviceListActivity.EXTRA_DEVICE_ADDRESS);
+                    infoText.setText(R.string.start_service_available);
                 }
                 break;
             case REQUEST_CONNECT_DEVICE_INSECURE:
                 // When DeviceListActivity returns with a device to connect
                 if (resultCode == Activity.RESULT_OK) {
-                    connectDevice(data, false);
+//                    connectDevice(data, false);
                 }
                 break;
             case REQUEST_ENABLE_BT:
                 // When the request to enable Bluetooth returns
                 if (resultCode == Activity.RESULT_OK) {
                     // Bluetooth is now enabled, so set up a chat session
-                    setupChat();
+                    infoText.setText(R.string.select_bt_msg);
+//                    setupChat();
                 } else {
                     // User did not enable Bluetooth or an error occurred
 //                    Log.d(TAG, "BT not enabled");
@@ -545,22 +445,22 @@ public class MasterFragment extends Fragment implements Listener{
                 }
         }
     }
-
-    /**
-     * Establish connection with other device
-     *
-     * @param data   An {@link Intent} with {@link DeviceListActivity#EXTRA_DEVICE_ADDRESS} extra.
-     * @param secure Socket Security type - Secure (true) , Insecure (false)
-     */
-    private void connectDevice(Intent data, boolean secure) {
-        // Get the device MAC address
-        String address = data.getExtras()
-                .getString(DeviceListActivity.EXTRA_DEVICE_ADDRESS);
-        // Get the BluetoothDevice object
-        BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
-        // Attempt to connect to the device
-        mChatService.connect(device, secure);
-    }
+//
+//    /**
+//     * Establish connection with other device
+//     *
+//     * @param data   An {@link Intent} with {@link DeviceListActivity#EXTRA_DEVICE_ADDRESS} extra.
+//     * @param secure Socket Security type - Secure (true) , Insecure (false)
+//     */
+//    private void connectDevice(Intent data, boolean secure) {
+//        // Get the device MAC address
+//        String address = data.getExtras()
+//                .getString(DeviceListActivity.EXTRA_DEVICE_ADDRESS);
+//        // Get the BluetoothDevice object
+//        BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
+//        // Attempt to connect to the device
+//        mChatService.connect(device, secure);
+//    }
 
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
@@ -647,9 +547,8 @@ public class MasterFragment extends Fragment implements Listener{
             if (ActivityCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
                 Log.d(TAG, "checkPermission: " + permission);
 
-                if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
-                        permission)) {
-            /* do nothing*/
+                if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),permission)) {
+                    /* do nothing*/
                 }
                 requestPermissions(
                         new String[]{permission}, whatPermission);
@@ -670,107 +569,11 @@ public class MasterFragment extends Fragment implements Listener{
 
                     if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
                             permission)) {
-            /* do nothing*/
+                        /* do nothing*/
                     }
-//                    requestPermissions(
-//                            new String[]{Manifest.permission.RECEIVE_SMS,
-//                                    Manifest.permission.READ_CONTACTS,
-//                                Manifest.permission.ACCESS_COARSE_LOCATION}, GET_SMS_PERMISSION);
                     return false;
                 }
             }
-
-//
-//            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_SMS)
-//                    != PackageManager.PERMISSION_GRANTED) {
-//                if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
-//                        Manifest.permission.RECEIVE_SMS)) {
-//                    Log.d(TAG, "checkPermission: ");
-//            /* do nothing*/
-//                }
-//                requestPermissions(
-//                        new String[]{Manifest.permission.RECEIVE_SMS,
-//                                Manifest.permission.READ_CONTACTS,
-//                                Manifest.permission.ACCESS_COARSE_LOCATION}, GET_SMS_PERMISSION);
-//            }
-//            else {
-//                SMS_PERMISSION = 1;
-//            }
-//
-//
-//
-
-
-
-
-
-
-
-/*
-
-            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.SEND_SMS)
-                    != PackageManager.PERMISSION_GRANTED) {
-                if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
-                        Manifest.permission.SEND_SMS)) {
-            */
-/* do nothing*//*
-
-                }
-                requestPermissions(
-                        new String[]{Manifest.permission.SEND_SMS}, GET_SMS_SEND_PERMISSION);
-            }
-//            else {
-//                SEND_SMS_PERMISSION = 1;
-//            }
-
-            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_CONTACTS)
-                    != PackageManager.PERMISSION_GRANTED) {
-                if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
-                        Manifest.permission.READ_CONTACTS)) {
-            */
-/* do nothing*//*
-
-                }
-                requestPermissions(
-                        new String[]{Manifest.permission.READ_CONTACTS}, GET_CONTACTS_PERMISSION);
-            }
-//            else {
-//                CONTACT_PERMISSION = 1;
-//            }
-
-            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION)
-                    != PackageManager.PERMISSION_GRANTED) {
-                if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
-                        Manifest.permission.ACCESS_COARSE_LOCATION)) {
-            */
-/* do nothing*//*
-
-                }
-                requestPermissions(
-                        new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, GET_COARSE_LOCATION_PERMISSION);
-            }
-
-//            else {
-//                LOCATION_PERMISSION = 1;
-//            }
-
-            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECEIVE_SMS)
-                    != PackageManager.PERMISSION_GRANTED) {
-                if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
-                        Manifest.permission.RECEIVE_SMS)) {
-            */
-/* do nothing*//*
-
-                }
-                requestPermissions(
-                        new String[]{Manifest.permission.RECEIVE_SMS}, GET_SMS_RECEIVE_PERMISSION);
-            }
-
-//            else {
-//                RECEIVE_SMS_PERMISSION = 1;
-//            }
-*/
-
         }
         return true;
 
@@ -778,8 +581,7 @@ public class MasterFragment extends Fragment implements Listener{
 
 
     @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           String permissions[], int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String permissions[], @NonNull int[] grantResults) {
         switch (requestCode) {
 
             case GET_ALL_PERMISSION: {
@@ -866,7 +668,6 @@ public class MasterFragment extends Fragment implements Listener{
                             Toast.LENGTH_LONG).show();
 
                 }
-                return;
             }
 //
 //            case GET_CONTACTS_PERMISSION: {

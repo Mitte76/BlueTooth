@@ -27,6 +27,13 @@
     <string name="master">Master</string>
     <string name="sync">Sync SMS</string>
     <string name="no_reply">You cannot reply to this message.</string>
+    <string name="select_bt_msg">Please choose device to connect to and then turn the service on</string>
+    <string name="service_on">Service on</string>
+    <string name="service_off">Service off</string>
+    <string name="select_bt_first">You need to select a Bluetooth device first</string>
+    <string name="start_service_available">You can now start the service</string>
+    <string name="service_started">The service is now started</string>
+    <string name="service_stopped">Service stopped</string>
 
 
 </resources>
