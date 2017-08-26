@@ -71,7 +71,7 @@ public class MasterFragment extends Fragment implements Listener{
     // Layout Views
     private ListView mConversationView;
     private EditText mOutEditText;
-    private Button mSendButton, mOffButton;
+    private Button mSendButton, mOffButton,mOnButton;
     private final int GET_SMS_PERMISSION = 1;
     private final int GET_CONTACT_PERMISSION = 2;
     private final int GET_LOCATION_PERMISSION = 3;
@@ -199,6 +199,7 @@ public class MasterFragment extends Fragment implements Listener{
         mConversationView = (ListView) view.findViewById(R.id.in);
         mSendButton = (Button) view.findViewById(R.id.button_send);
         mOffButton = (Button) view.findViewById(R.id.button_off);
+        mOnButton = (Button) view.findViewById(R.id.button_on);
         ((AppCompatActivity) getActivity()).getSupportActionBar().show();
 
     }
@@ -237,9 +238,26 @@ public class MasterFragment extends Fragment implements Listener{
                 // Send a message using content of the edit text widget
                 View view = getView();
 
+//
+//                mChatService.stop();
+//                mBluetoothAdapter.cancelDiscovery();
+                getActivity().stopService(new Intent(getActivity(), BtService.class));
 
-                mChatService.stop();
-                mBluetoothAdapter.cancelDiscovery();
+
+            }
+        });
+
+        mOnButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                // Send a message using content of the edit text widget
+                View view = getView();
+
+//
+//                mChatService.stop();
+//                mBluetoothAdapter.cancelDiscovery();
+                getActivity().startService(new Intent(getActivity(), BtService.class));
+
+
             }
         });
 
@@ -252,6 +270,10 @@ public class MasterFragment extends Fragment implements Listener{
 
 
     }
+
+
+
+
 
     /**
      * Makes this device discoverable for 300 seconds (5 minutes).
@@ -551,7 +573,7 @@ public class MasterFragment extends Fragment implements Listener{
         return false;
     }
 
-    public String getContactName(final String phoneNumber, Context context) {
+    private String getContactName(final String phoneNumber, Context context) {
 
 
         String out = phoneNumber;
