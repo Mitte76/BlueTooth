@@ -138,7 +138,13 @@ public class DeviceListActivity extends Activity {
         }
 
         // Unregister broadcast listeners
+//        this.unregisterReceiver(mReceiver);
+    }
+    @Override
+    protected void onPause() {
         this.unregisterReceiver(mReceiver);
+
+        super.onPause();
     }
 
     /**
@@ -148,7 +154,7 @@ public class DeviceListActivity extends Activity {
         Log.d(TAG, "doDiscovery()");
 
         // Indicate scanning in the title
-//        setProgressBarIndeterminateVisibility(true);
+        setProgressBarIndeterminateVisibility(true);
         setTitle(R.string.scanning);
 
         // Turn on sub-title for new devices

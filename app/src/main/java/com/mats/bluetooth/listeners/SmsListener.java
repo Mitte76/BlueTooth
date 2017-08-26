@@ -7,6 +7,10 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Telephony;
 import android.telephony.SmsMessage;
+import android.util.Log;
+import android.widget.Toast;
+
+import com.mats.bluetooth.R;
 
 /**
  * Created by mats on 2017-08-22.
@@ -18,21 +22,27 @@ import android.telephony.SmsMessage;
  */
 
 public class SmsListener extends BroadcastReceiver {
+    public interface Listener {
+        void onTextReceived(String text);
+
+
+    }
 
     private static final String TAG = "SmsBroadcastReceiver";
 
 /*    private final String serviceProviderNumber;
     private final String serviceProviderSmsCondition;*/
 
-    private Listener listener;
+    private static Listener mListener;
 
-    public SmsListener(/*String serviceProviderNumber, String serviceProviderSmsCondition*/) {
-/*        this.serviceProviderNumber = serviceProviderNumber;
-        this.serviceProviderSmsCondition = serviceProviderSmsCondition;*/
-    }
+/*    public SmsListener(*//*String serviceProviderNumber, String serviceProviderSmsCondition*//*) {
+*//*        this.serviceProviderNumber = serviceProviderNumber;
+        this.serviceProviderSmsCondition = serviceProviderSmsCondition;*//*
+    }*/
 
     @Override
     public void onReceive(Context context, Intent intent) {
+
         if (intent.getAction().equals(Telephony.Sms.Intents.SMS_RECEIVED_ACTION)) {
             String smsSender = "";
             String smsBody = "";
@@ -59,20 +69,21 @@ public class SmsListener extends BroadcastReceiver {
                     smsSender = messages[0].getOriginatingAddress();
                 }
             }
+            Toast.makeText(context, smsBody, Toast.LENGTH_SHORT).show();
 
-/*            if (smsSender.equals(serviceProviderNumber) && smsBody.startsWith(serviceProviderSmsCondition)) {
-                if (listener != null) {
-                    listener.onTextReceived(smsBody);
+//            if (smsSender.equals(serviceProviderNumber) && smsBody.startsWith(serviceProviderSmsCondition)) {
+                if (mListener != null) {
+                    mListener.onTextReceived(smsBody);
+                } else {
+                    Log.d(TAG, "onReceive: inte implementerad ");
                 }
-            }*/
+//            }
         }
     }
 
     public void setListener(Listener listener) {
-        this.listener = listener;
+        mListener = listener;
     }
 
-    public interface Listener {
-        void onTextReceived(String text);
-    }
+
 }

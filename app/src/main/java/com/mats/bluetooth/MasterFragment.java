@@ -33,7 +33,6 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
-import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.telephony.SmsManager;
 import android.util.Log;
@@ -49,7 +48,10 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Toast;
 
+//import com.mats.bluetooth.listeners.SmsListener;
+
 import com.mats.bluetooth.listeners.SmsListener;
+import com.mats.bluetooth.listeners.SmsListener.Listener;
 
 import java.util.ArrayList;
 
@@ -57,7 +59,7 @@ import java.util.ArrayList;
 /**
  * This fragment controls Bluetooth to communicate with other devices.
  */
-public class MasterFragment extends Fragment {
+public class MasterFragment extends Fragment implements Listener{
 
     private static final String TAG = "MasterFragment";
 
@@ -69,14 +71,17 @@ public class MasterFragment extends Fragment {
     // Layout Views
     private ListView mConversationView;
     private EditText mOutEditText;
-    private Button mSendButton;
-    private final int GET_SMS_READ_PERMISSION = 1;
-    private final int GET_SMS_SEND_PERMISSION = 2;
-    private final int GET_CONTACTS_PERMISSION = 3;
-    private final int GET_COARSE_LOCATION_PERMISSION = 4;
-    private int READ_SMS_PERMISSION = 0;
-    private int SEND_SMS_PERMISSION = 0;
-    private int CONTACT_PERMISSION = 0;
+    private Button mSendButton, mOffButton;
+    private final int GET_SMS_PERMISSION = 1;
+    private final int GET_CONTACT_PERMISSION = 2;
+    private final int GET_LOCATION_PERMISSION = 3;
+    private final int GET_ALL_PERMISSION = 4;
+    private final String[] PERMISSIONS = {Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_CONTACTS, Manifest.permission.ACCESS_COARSE_LOCATION};
+
+
+    private String SMS_PERMISSION = Manifest.permission.READ_SMS;
+    private String CONTACT_PERMISSION = Manifest.permission.READ_CONTACTS;
+    //    private int CONTACT_PERMISSION = 0;
     private int LOCATION_PERMISSION = 0;
 
     /**
@@ -105,10 +110,9 @@ public class MasterFragment extends Fragment {
     private BluetoothService mChatService = null;
 
     /**
-     * SMS Broadcast Receiver
+     * Listener for new sms
      */
-
-    private SmsListener smsListener;
+    private SmsListener mSmsListener;
 
 
     @Override
@@ -117,14 +121,26 @@ public class MasterFragment extends Fragment {
         setHasOptionsMenu(true);
         // Get local Bluetooth adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        smsListener = new SmsListener(/*BuildConfig.SERVICE_NUMBER, BuildConfig.SERVICE_CONDITION*/);
-
         // If the adapter is null, then Bluetooth is not supported
         if (mBluetoothAdapter == null) {
             FragmentActivity activity = getActivity();
             Toast.makeText(activity, "Bluetooth is not available", Toast.LENGTH_LONG).show();
             activity.finish();
         }
+
+        mSmsListener = new SmsListener();
+        mSmsListener.setListener(this);
+
+
+
+//        SmsListener.setListener(new SmsListener.Listener() {
+//            @Override
+//            public void onTextReceived(String text) {
+//                Toast.makeText(getActivity(), "Hubbabubba " + text, Toast.LENGTH_SHORT).show();
+//
+//            }
+//        });
+
     }
 
 
@@ -132,7 +148,7 @@ public class MasterFragment extends Fragment {
     public void onStart() {
         super.onStart();
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            checkPermission();
+            checkPermission(getContext(), PERMISSIONS);
         }
 
         // If BT is not on, request that it be enabled.
@@ -152,6 +168,7 @@ public class MasterFragment extends Fragment {
         if (mChatService != null) {
             mChatService.stop();
         }
+
     }
 
     @Override
@@ -181,6 +198,7 @@ public class MasterFragment extends Fragment {
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
         mConversationView = (ListView) view.findViewById(R.id.in);
         mSendButton = (Button) view.findViewById(R.id.button_send);
+        mOffButton = (Button) view.findViewById(R.id.button_off);
         ((AppCompatActivity) getActivity()).getSupportActionBar().show();
 
     }
@@ -189,22 +207,6 @@ public class MasterFragment extends Fragment {
      * Set up the UI and background operations for chat.
      */
     private void setupChat() {
-//        Log.d(TAG, "setupChat()");
-
-        smsListener.setListener(new SmsListener.Listener() {
-            @Override
-            public void onTextReceived(String text) {
-                Log.d(TAG, "onTextReceived: " + text);
-            }
-        });
-
-//        smsListener.setListener(new SmsListener.Listener(
-//                {
-//        @Override
-//        public void onTextReceived (String text){
-//            // Do stuff with received text!
-//        }
-//});
 
 
         // Initialize the array adapter for the conversation thread
@@ -224,7 +226,20 @@ public class MasterFragment extends Fragment {
 //                    TextView textView = (TextView) view.findViewById(R.id.edit_text_out);
 //                    String message = textView.getText().toString();
                     sendMessage();
+                    Log.d(TAG, "onClick: ");
                 }
+            }
+        });
+
+
+        mOffButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                // Send a message using content of the edit text widget
+                View view = getView();
+
+
+                mChatService.stop();
+                mBluetoothAdapter.cancelDiscovery();
             }
         });
 
@@ -263,8 +278,15 @@ public class MasterFragment extends Fragment {
             return;
         }
 
-        if (READ_SMS_PERMISSION == 1) {
-            Cursor cursor = getActivity().getContentResolver().query(Uri.parse("content://sms/inbox"), null, "read = 0", null, null);
+//        if(!checkPermission(getContext(), Manifest.permission.SEND_SMS)){
+//            ActivityCompat.requestPermissions(getActivity(), PERMISSIONS, GET_SMS_PERMISSION);
+//        }
+        if (!checkPermission(getActivity(), SMS_PERMISSION)) {
+            getPermission(getContext(), GET_SMS_PERMISSION, SMS_PERMISSION);
+        } else /*(checkPermission(getActivity(),Manifest.permission.READ_SMS))*/ {
+            Cursor cursor = getActivity().getContentResolver().query(Uri.parse("content://sms/inbox?simple=true"), null, "read = 0", null, null);
+            Log.d(TAG, "sendMessage: ");
+
             if (cursor.moveToFirst()) { // must check the result to prevent exception
                 int i = 0;
                 ArrayList<String> mArrayList = new ArrayList<String>();
@@ -302,6 +324,9 @@ public class MasterFragment extends Fragment {
             }
 
         }
+//        else {
+//            Log.d(TAG, "sendMessage: No permission to read sms");
+//        }
 
     }
 
@@ -355,6 +380,19 @@ public class MasterFragment extends Fragment {
             return;
         }
         actionBar.setSubtitle(subTitle);
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (mChatService != null) {
+            mChatService.stop();
+        }
+//        if (mHandler != null) {
+//            mHandler.removeCallbacksAndMessages(null);
+//            Log.d(TAG, "onDestroyView: ");
+//        }
+
     }
 
     /**
@@ -414,7 +452,7 @@ public class MasterFragment extends Fragment {
 
     private void sendSMS(String message) {
 
-        if (SEND_SMS_PERMISSION == 1) {
+        if (checkPermission(getActivity(), Manifest.permission.SEND_SMS)) {
 
             String number = message.substring(message.indexOf("(|") + 2, message.indexOf("|)"));
             String test = message.replaceAll("\\(\\|.*\\|\\)", "");
@@ -423,7 +461,7 @@ public class MasterFragment extends Fragment {
             SmsManager smsManager = SmsManager.getDefault();
             smsManager.sendTextMessage(number, null, test, null, null);
         } else {
-            checkPermission();
+            checkPermission(getContext(), Manifest.permission.SEND_SMS);
         }
 
     }
@@ -502,7 +540,11 @@ public class MasterFragment extends Fragment {
             }
             case R.id.permission: {
                 // Fix permissions
-                checkPermission();
+                if (!checkPermission(getContext(), PERMISSIONS)) {
+                    getPermission(getContext(), GET_ALL_PERMISSION, PERMISSIONS);
+//                    ActivityCompat.requestPermissions(getActivity(), PERMISSIONS, GET_ALL_PERMISSION);
+                }
+
                 return true;
             }
         }
@@ -513,8 +555,11 @@ public class MasterFragment extends Fragment {
 
 
         String out = phoneNumber;
+        if (!checkPermission(getActivity(), CONTACT_PERMISSION)) {
+            getPermission(getContext(), GET_CONTACT_PERMISSION, CONTACT_PERMISSION);
+            out = phoneNumber;
 
-        if (CONTACT_PERMISSION == 1) {
+        } else {
             Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber));
 
             String[] projection = new String[]{ContactsContract.PhoneLookup.DISPLAY_NAME};
@@ -534,63 +579,149 @@ public class MasterFragment extends Fragment {
                     out = contactName;
                 }
             }
-        } else {
-            out = phoneNumber;
         }
+
+//        else {
+//            checkPermission(getContext(), Manifest.permission.READ_CONTACTS);
+//
+//            out = phoneNumber;
+//        }
         return out;
     }
 
-    private void checkPermission() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
 
-            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_SMS)
-                    != PackageManager.PERMISSION_GRANTED) {
+    private void getPermission(Context context, int whatPermission, String... permissions) {
+
+        for (String permission : permissions) {
+            if (ActivityCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "checkPermission: " + permission);
+
                 if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
-                        Manifest.permission.READ_SMS)) {
+                        permission)) {
             /* do nothing*/
                 }
                 requestPermissions(
-                        new String[]{Manifest.permission.READ_SMS}, GET_SMS_READ_PERMISSION);
-            } else {
-                READ_SMS_PERMISSION = 1;
+                        new String[]{permission}, whatPermission);
+//                return false;
             }
+        }
+    }
+
+
+    private boolean checkPermission(Context context, String... permissions) {
+//        Activity activity = (Activity) context;
+        Log.d(TAG, "checkPermission: ovanför");
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M && context != null && permissions != null) {
+            for (String permission : permissions) {
+                if (ActivityCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
+                    Log.d(TAG, "checkPermission: " + permission);
+
+                    if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
+                            permission)) {
+            /* do nothing*/
+                    }
+//                    requestPermissions(
+//                            new String[]{Manifest.permission.RECEIVE_SMS,
+//                                    Manifest.permission.READ_CONTACTS,
+//                                Manifest.permission.ACCESS_COARSE_LOCATION}, GET_SMS_PERMISSION);
+                    return false;
+                }
+            }
+
+//
+//            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_SMS)
+//                    != PackageManager.PERMISSION_GRANTED) {
+//                if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
+//                        Manifest.permission.RECEIVE_SMS)) {
+//                    Log.d(TAG, "checkPermission: ");
+//            /* do nothing*/
+//                }
+//                requestPermissions(
+//                        new String[]{Manifest.permission.RECEIVE_SMS,
+//                                Manifest.permission.READ_CONTACTS,
+//                                Manifest.permission.ACCESS_COARSE_LOCATION}, GET_SMS_PERMISSION);
+//            }
+//            else {
+//                SMS_PERMISSION = 1;
+//            }
+//
+//
+//
+
+
+
+
+
+
+
+/*
 
             if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.SEND_SMS)
                     != PackageManager.PERMISSION_GRANTED) {
                 if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
                         Manifest.permission.SEND_SMS)) {
-            /* do nothing*/
+            */
+/* do nothing*//*
+
                 }
                 requestPermissions(
                         new String[]{Manifest.permission.SEND_SMS}, GET_SMS_SEND_PERMISSION);
-            } else {
-                SEND_SMS_PERMISSION = 1;
             }
+//            else {
+//                SEND_SMS_PERMISSION = 1;
+//            }
 
             if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_CONTACTS)
                     != PackageManager.PERMISSION_GRANTED) {
                 if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
                         Manifest.permission.READ_CONTACTS)) {
-            /* do nothing*/
+            */
+/* do nothing*//*
+
                 }
                 requestPermissions(
                         new String[]{Manifest.permission.READ_CONTACTS}, GET_CONTACTS_PERMISSION);
-            } else {
-                CONTACT_PERMISSION = 1;
             }
+//            else {
+//                CONTACT_PERMISSION = 1;
+//            }
 
             if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION)
                     != PackageManager.PERMISSION_GRANTED) {
                 if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
                         Manifest.permission.ACCESS_COARSE_LOCATION)) {
-            /* do nothing*/
+            */
+/* do nothing*//*
+
                 }
                 requestPermissions(
                         new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, GET_COARSE_LOCATION_PERMISSION);
-            } else {
-                LOCATION_PERMISSION = 1;
             }
+
+//            else {
+//                LOCATION_PERMISSION = 1;
+//            }
+
+            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECEIVE_SMS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                if (ActivityCompat.shouldShowRequestPermissionRationale(getActivity(),
+                        Manifest.permission.RECEIVE_SMS)) {
+            */
+/* do nothing*//*
+
+                }
+                requestPermissions(
+                        new String[]{Manifest.permission.RECEIVE_SMS}, GET_SMS_RECEIVE_PERMISSION);
+            }
+
+//            else {
+//                RECEIVE_SMS_PERMISSION = 1;
+//            }
+*/
+
         }
+        return true;
 
     }
 
@@ -600,47 +731,170 @@ public class MasterFragment extends Fragment {
                                            String permissions[], int[] grantResults) {
         switch (requestCode) {
 
-            case GET_SMS_READ_PERMISSION: {
+            case GET_ALL_PERMISSION: {
 
                 // If request is cancelled, the result arrays are empty.
-                if (grantResults.length > 0
-                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    READ_SMS_PERMISSION = 1;
-                    checkPermission();
-//                    sendMessage();
-                    Log.d(TAG, "onRequestPermissionsResult: permission was granted, yay!" + grantResults.length);
+                if (grantResults.length > 0) {
+
+                    if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+//                        SMS_PERMISSION = 1;
+                        Log.d(TAG, "onRequestPermissionsResult: permission was granted, yay!  SMS");
+                    }
+                    if (grantResults[1] == PackageManager.PERMISSION_GRANTED) {
+//                        CONTACT_PERMISSION = 1;
+                        Log.d(TAG, "onRequestPermissionsResult: permission was granted, yay!  CONTACT");
+                    }
+                    if (grantResults[2] == PackageManager.PERMISSION_GRANTED) {
+                        LOCATION_PERMISSION = 1;
+                        Log.d(TAG, "onRequestPermissionsResult: permission was granted, yay!  LOCATION");
+                    }
+                }
+
+//                else {
+//                    Log.d(TAG, "onRequestPermissionsResult: Permission not granted (SMS)" + grantResults.length);
+//                    Toast.makeText(getActivity(), "You need access to SMS to run this app",
+//                            Toast.LENGTH_LONG).show();
+//                    getActivity().finish();
+//
+//                }
+                return;
+            }
+
+            case GET_SMS_PERMISSION: {
+
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0) {
+
+                    if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+//                        SMS_PERMISSION = 1;
+                        Log.d(TAG, "onRequestPermissionsResult: permission was granted, yay!  SMS");
+                    }
                 } else {
-                    Log.d(TAG, "onRequestPermissionsResult: Permission not granted (SMS)" + grantResults.length);
+                    Log.d(TAG, "onRequestPermissionsResult: Permission not granted (SMS)");
                     Toast.makeText(getActivity(), "You need access to SMS to run this app",
                             Toast.LENGTH_LONG).show();
                     getActivity().finish();
-//                    System.exit(0);
-                    // permission denied, boo! Disable the
-                    // functionality that depends on this permission.
+
                 }
                 return;
             }
-            case GET_CONTACTS_PERMISSION: {
+
+            case GET_CONTACT_PERMISSION: {
 
                 // If request is cancelled, the result arrays are empty.
-                if (grantResults.length > 0
-                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    CONTACT_PERMISSION = 1;
+                if (grantResults.length > 0) {
 
-                    Log.d(TAG, "onRequestPermissionsResult: permission was granted, yay!");
-
-                } else {
-                    CONTACT_PERMISSION = 0;
-                    Log.d(TAG, "onRequestPermissionsResult: Permission not granted (Contact)");
-                    // permission denied, boo! Disable the
-                    // functionality that depends on this permission.
+                    if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+//                        CONTACT_PERMISSION = 1;
+                        Log.d(TAG, "onRequestPermissionsResult: permission was granted, yay!  CONTACT");
+                    }
                 }
+//                else {
+//                    Log.d(TAG, "onRequestPermissionsResult: Permission not granted (CONTACT)");
+//                    Toast.makeText(getActivity(), "You will not be able to see the name of the sender" +
+//                                    ", only the number if you deny this permission",
+//                            Toast.LENGTH_LONG).show();
+//
+//                }
+                return;
             }
 
-            // other 'case' lines to check for other
-            // permissions this app might request
+            case GET_LOCATION_PERMISSION: {
+
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0) {
+
+                    if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                        LOCATION_PERMISSION = 1;
+                        Log.d(TAG, "onRequestPermissionsResult: permission was granted, yay!  CONTACT");
+                    }
+                } else {
+                    Log.d(TAG, "onRequestPermissionsResult: Permission not granted (CONTACT)");
+                    Toast.makeText(getActivity(), "You will not be able to scan for new bluetooth devices" +
+                                    " if you do not grant location permission",
+                            Toast.LENGTH_LONG).show();
+
+                }
+                return;
+            }
+//
+//            case GET_CONTACTS_PERMISSION: {
+//
+//                // If request is cancelled, the result arrays are empty.
+//                if (grantResults.length > 0
+//                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+//                    CONTACT_PERMISSION = 1;
+//
+//                    Log.d(TAG, "onRequestPermissionsResult: permission was granted, yay!");
+//
+//                } else {
+////                    CONTACT_PERMISSION = 0;
+//                    Log.d(TAG, "onRequestPermissionsResult: Permission not granted (Contact)");
+//                }
+//            }
+//
+//            case GET_COARSE_LOCATION_PERMISSION: {
+//
+//                // If request is cancelled, the result arrays are empty.
+//                if (grantResults.length > 0
+//                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+//                    LOCATION_PERMISSION = 1;
+//
+//                    Log.d(TAG, "onRequestPermissionsResult: permission was granted, yay!");
+//
+//                } else {
+////                    CONTACT_PERMISSION = 0;
+//                    Log.d(TAG, "onRequestPermissionsResult: Permission not granted (Contact)");
+//                }
+//            }
+//
+//
+//            case GET_SMS_RECEIVE_PERMISSION: {
+//
+//                // If request is cancelled, the result arrays are empty.
+//                if (grantResults.length > 0
+//                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+//                    RECEIVE_SMS_PERMISSION = 1;
+//
+//                    Log.d(TAG, "onRequestPermissionsResult: permission was granted, yay!");
+//
+//                } else {
+////                    CONTACT_PERMISSION = 0;
+//                    Log.d(TAG, "onRequestPermissionsResult: Permission not granted (Contact)");
+//                }
+//            }
+//            // other 'case' lines to check for other
+//            // permissions this app might request
+//            case GET_SMS_SEND_PERMISSION: {
+//
+//                // If request is cancelled, the result arrays are empty.
+//                if (grantResults.length > 0
+//                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+//                    SEND_SMS_PERMISSION = 1;
+//
+//                    Log.d(TAG, "onRequestPermissionsResult: permission was granted, yay!");
+//
+//                } else {
+////                    CONTACT_PERMISSION = 0;
+//                    Log.d(TAG, "onRequestPermissionsResult: Permission not granted (Contact)");
+//                }
+//            }
+//
+
+
         }
     }
 
 
+    @Override
+    public void onTextReceived(String text) {
+
+        final Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                sendMessage();
+            }
+        }, 1000);
+    }
 }

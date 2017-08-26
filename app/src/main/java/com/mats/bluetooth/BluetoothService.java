@@ -235,6 +235,7 @@ public class BluetoothService {
             mInsecureAcceptThread = null;
         }
         mState = STATE_NONE;
+
         // Update UI title
         updateUserInterfaceTitle();
     }
