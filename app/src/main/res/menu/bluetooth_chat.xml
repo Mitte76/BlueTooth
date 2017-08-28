@@ -17,7 +17,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
-        android:id="@+id/secure_connect_scan"
+        android:id="@+id/select_slave"
         android:icon="@drawable/ic_action_device_access_bluetooth_searching"
         app:showAsAction="ifRoom"
         android:title="@string/secure_connect"/>

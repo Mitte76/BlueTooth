@@ -17,10 +17,14 @@
 
 package com.mats.bluetooth;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.view.Menu;
+import android.view.View;
+import android.widget.Button;
 
 /**
  * A simple launcher activity containing a summary sample description, sample log and a custom
@@ -35,34 +39,47 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean mLogShown;
     private Toolbar toolbar;
+    private Button masterButton, slaveButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.fragment_select);
+        init();
 
 
-        toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        getSupportActionBar().hide();
-//        if (savedInstanceState == null) {
-//            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-//            MasterFragment fragment = new MasterFragment();
-//            transaction.replace(R.id.sample_content_fragment, fragment);
-//            transaction.commit();
-//        }
-        if (savedInstanceState == null) {
-            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            SelectFragment fragment = new SelectFragment();
-            transaction.replace(R.id.sample_content_fragment, fragment);
-            transaction.commit();
-        }
     }
-//
-//    @Override
-//    public boolean onCreateOptionsMenu(Menu menu) {
-//        getMenuInflater().inflate(R.menu.main, menu);
-//        return super.onCreateOptionsMenu(menu);
-//    }
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    private void init(){
+
+        masterButton = (Button) findViewById(R.id.master_btn);
+        slaveButton = (Button) findViewById(R.id.slave_btn);
+
+        masterButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                masterIntent();
+            }
+        });
+        slaveButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+                SlaveFragment fragment = new SlaveFragment();
+                transaction.replace(R.id.sample_content_fragment, fragment);
+                transaction.commit();
+
+            }
+        });
+    }
+
+    private void masterIntent(){
+        Intent masterIntent = new Intent(this, MasterActivity.class);
+        startActivity(masterIntent);
+    }
 
 }

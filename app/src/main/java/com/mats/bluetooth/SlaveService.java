@@ -5,6 +5,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
 import android.database.Cursor;
@@ -29,17 +30,18 @@ import java.util.UUID;
  * Created by mats on 2017-08-26.
  */
 
-public class BtService extends Service implements Listener {
+public class SlaveService extends Service implements Listener {
 
     final int handlerState = 0;                        //used to identify handler message
     Handler bluetoothIn;
     private BluetoothAdapter btAdapter = null;
     private SmsListener mSmsListener;
-    private static final String TAG = "BtService";
+    private static final String TAG = "MasterService";
     private ConnectingThread mConnectingThread;
     private ConnectedThread mConnectedThread;
-    private String SLAVE_MAC;
+    private AcceptThread mSecureAcceptThread;
 
+    private int mState;
     private boolean stopThread;
     // SPP UUID service - this should work for most devices
     private static final UUID BTMODULEUUID = UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66");
@@ -47,8 +49,14 @@ public class BtService extends Service implements Listener {
     // String for MAC address
 //    private static final String MAC_ADDRESS = "DC:66:72:B7:BB:48";
     private static String MAC_ADDRESS;
-
+    private int VERSION;
     private StringBuilder recDataString = new StringBuilder();
+    public static final int MASTER = 0;
+    public static final int SLAVE = 1;
+    public static final int STATE_NONE = 0;       // we're doing nothing
+    public static final int STATE_LISTEN = 1;     // now listening for incoming connections
+    public static final int STATE_CONNECTING = 2; // now initiating an outgoing connection
+    public static final int STATE_CONNECTED = 3;  // now connected to a remote device
 
     @Override
     public void onCreate() {
@@ -74,7 +82,9 @@ public class BtService extends Service implements Listener {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d("BT SERVICE", "SERVICE STARTED");
         if (intent != null && intent.getExtras() != null) {
+            VERSION = intent.getExtras().getInt("version");
             MAC_ADDRESS = intent.getExtras().getString("mac_address");
+
         }
         bluetoothIn = new Handler() {
 
@@ -88,12 +98,17 @@ public class BtService extends Service implements Listener {
                 }
                 recDataString.delete(0, recDataString.length());                    //clear all string data
             }
-
-
         };
 
         btAdapter = BluetoothAdapter.getDefaultAdapter();       // get Bluetooth adapter
-        checkBTState();
+        if(VERSION == MASTER) {
+            checkBTState();
+        } else{
+            if (mSecureAcceptThread == null) {
+                mSecureAcceptThread = new AcceptThread(true);
+                mSecureAcceptThread.start();
+            }
+        }
         return super.onStartCommand(intent, flags, startId);
     }
 
@@ -242,6 +257,51 @@ public class BtService extends Service implements Listener {
     }
 
 
+
+
+
+
+
+
+    public synchronized void connected(BluetoothSocket socket, BluetoothDevice
+            device, final String socketType) {
+//        Log.d(TAG, "connected, Socket Type:" + socketType);
+
+        // Cancel the thread that completed the connection
+        if (mConnectingThread != null) {
+            mConnectingThread.closeSocket();
+            mConnectingThread = null;
+        }
+
+        // Cancel any thread currently running a connection
+        if (mConnectedThread != null) {
+            mConnectedThread.closeStreams();
+            mConnectedThread = null;
+        }
+
+        // Cancel the accept thread because we only want to connect to one device
+        if (mSecureAcceptThread != null) {
+            mSecureAcceptThread.cancel();
+            mSecureAcceptThread = null;
+        }
+
+
+        // Start the thread to manage the connection and perform transmissions
+        mConnectedThread = new ConnectedThread(socket);
+        mConnectedThread.start();
+
+
+    }
+
+
+
+
+
+
+
+
+
+
     // New Class for Connecting Thread
     private class ConnectingThread extends Thread {
         private final BluetoothSocket mmSocket;
@@ -343,7 +403,7 @@ public class BtService extends Service implements Listener {
             int bytes;
 
             // Keep looping to listen for received messages
-            while (true && !stopThread) {
+            while (!stopThread) {
                 try {
                     bytes = mmInStream.read(buffer);            //read bytes from input buffer
                     String readMessage = new String(buffer, 0, bytes);
@@ -385,4 +445,82 @@ public class BtService extends Service implements Listener {
             }
         }
     }
+
+    private class AcceptThread extends Thread {
+        // The local server socket
+        private final BluetoothServerSocket mmServerSocket;
+        private String mSocketType;
+
+        public AcceptThread(boolean secure) {
+            BluetoothServerSocket tmp = null;
+            mSocketType = secure ? "Secure" : "Insecure";
+
+            // Create a new listening server socket
+            try {
+                    tmp = btAdapter.listenUsingRfcommWithServiceRecord("MasterService", BTMODULEUUID);
+            } catch (IOException e) {
+                Log.e(TAG, "Socket Type: " + mSocketType + "listen() failed", e);
+            }
+            mmServerSocket = tmp;
+            mState = STATE_LISTEN;
+        }
+
+        public void run() {
+//            Log.d(TAG, "Socket Type: " + mSocketType +
+//                    "BEGIN mAcceptThread" + this);
+            setName("AcceptThread" + mSocketType);
+
+            BluetoothSocket socket = null;
+
+            // Listen to the server socket if we're not connected
+            while (mState != STATE_CONNECTED) {
+                try {
+                    // This is a blocking call and will only return on a
+                    // successful connection or an exception
+                    socket = mmServerSocket.accept();
+                } catch (IOException e) {
+                    Log.e(TAG, "Socket Type: " + mSocketType + "accept() failed", e);
+                    break;
+                }
+
+                // If a connection was accepted
+                if (socket != null) {
+                    synchronized (SlaveService.this) {
+                        switch (mState) {
+                            case STATE_LISTEN:
+                            case STATE_CONNECTING:
+                                // Situation normal. Start the connected thread.
+                                connected(socket, socket.getRemoteDevice(),
+                                        mSocketType);
+                                break;
+                            case STATE_NONE:
+                            case STATE_CONNECTED:
+                                // Either not ready or already connected. Terminate new socket.
+                                try {
+                                    socket.close();
+                                } catch (IOException e) {
+                                    Log.e(TAG, "Could not close unwanted socket", e);
+                                }
+                                break;
+                        }
+                    }
+                }
+            }
+//            Log.i(TAG, "END mAcceptThread, socket Type: " + mSocketType);
+
+        }
+
+        public void cancel() {
+//            Log.d(TAG, "Socket Type" + mSocketType + "cancel " + this);
+            try {
+                mmServerSocket.close();
+            } catch (IOException e) {
+                Log.e(TAG, "Socket Type" + mSocketType + "close() of server failed", e);
+            }
+        }
+    }
+
+
+
+
 }

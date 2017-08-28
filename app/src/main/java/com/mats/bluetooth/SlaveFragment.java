@@ -176,7 +176,7 @@ public class SlaveFragment extends Fragment implements AddingTaskDialogFragment2
         mConversationView = (ListView) view.findViewById(R.id.in);
 //        mOutEditText = (EditText) view.findViewById(R.id.edit_text_out);
 //        mSendButton = (Button) view.findViewById(R.id.button_send);
-        ((AppCompatActivity) getActivity()).getSupportActionBar().show();
+//        ((AppCompatActivity) getActivity()).getSupportActionBar().show();
     }
 
     /**
@@ -465,7 +465,7 @@ public class SlaveFragment extends Fragment implements AddingTaskDialogFragment2
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
-            case R.id.secure_connect_scan: {
+            case R.id.select_slave: {
                 // Launch the DeviceListActivity to see devices and do scan
                 Intent serverIntent = new Intent(getActivity(), DeviceListActivity.class);
                 startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE_SECURE);
@@ -620,7 +620,7 @@ public class SlaveFragment extends Fragment implements AddingTaskDialogFragment2
     @Override
     public void onReply(String number, String text) {
         Log.d(TAG, "onReply: " + text);
-        sendMessage("(|" + number+"|)" + text);
+        sendMessage("[SMS]" + "(|" + number+"|)" + text);
     }
 
 

@@ -19,7 +19,6 @@ package com.mats.bluetooth;
 import android.Manifest;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -27,7 +26,6 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Message;
 import android.provider.ContactsContract;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -61,12 +59,12 @@ public class MasterFragment extends Fragment implements Listener {
     private static final String TAG = "MasterFragment";
     private String SLAVE_MAC;
     // Intent request codes
-    private static final int REQUEST_CONNECT_DEVICE_SECURE = 1;
+    private static final int SELECT_SLAVE_DEVICE = 1;
     private static final int REQUEST_CONNECT_DEVICE_INSECURE = 2;
     private static final int REQUEST_ENABLE_BT = 3;
 
     // Layout Views
-    private Button mOffButton, mOnButton;
+    private Button mOffButton, mOnButton, mSlaveOffButton, mSlaveOnButton;
     private TextView infoText;
     private final int GET_SMS_PERMISSION = 1;
     private final int GET_CONTACT_PERMISSION = 2;
@@ -144,9 +142,9 @@ public class MasterFragment extends Fragment implements Listener {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (mChatService != null) {
-            mChatService.stop();
-        }
+//        if (mChatService != null) {
+//            mChatService.stop();
+//        }
 
     }
 
@@ -177,6 +175,8 @@ public class MasterFragment extends Fragment implements Listener {
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
         mOffButton = (Button) view.findViewById(R.id.button_off);
         mOnButton = (Button) view.findViewById(R.id.button_on);
+        mSlaveOnButton = (Button) view.findViewById(R.id.button_s_on);
+        mSlaveOffButton = (Button) view.findViewById(R.id.button_s_off);
         infoText = (TextView) view.findViewById(R.id.info);
 
         AppCompatActivity activity = (AppCompatActivity) getActivity();
@@ -185,17 +185,6 @@ public class MasterFragment extends Fragment implements Listener {
         }
 
         infoText.setText(R.string.select_bt_msg);
-
-        mOffButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                // Send a message using content of the edit text widget
-                View view = getView();
-
-                getActivity().stopService(new Intent(getActivity(), BtService.class));
-                infoText.setText(R.string.service_stopped);
-
-            }
-        });
 
         mOnButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -211,7 +200,8 @@ public class MasterFragment extends Fragment implements Listener {
                     startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
                 } else {
                     if (SLAVE_MAC != null) {
-                        Intent service = new Intent(getActivity(), BtService.class);
+                        Intent service = new Intent(getActivity(), MasterService.class);
+                        service.putExtra("version", 0);
                         service.putExtra("mac_address", SLAVE_MAC);
                         getActivity().startService(service);
                         infoText.setText(R.string.service_started);
@@ -222,6 +212,57 @@ public class MasterFragment extends Fragment implements Listener {
                 }
 
 
+            }
+        });
+
+        mOffButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                // Send a message using content of the edit text widget
+                View view = getView();
+
+                getActivity().stopService(new Intent(getActivity(), MasterService.class));
+                infoText.setText(R.string.service_stopped);
+
+            }
+        });
+
+        mSlaveOffButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                // Send a message using content of the edit text widget
+                View view = getView();
+
+                getActivity().stopService(new Intent(getActivity(), MasterService.class));
+                infoText.setText(R.string.service_stopped);
+
+            }
+        });
+
+
+
+        mSlaveOnButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                // Send a message using content of the edit text widget
+                View view = getView();
+
+//
+//                mChatService.stop();
+//                mBluetoothAdapter.cancelDiscovery();
+
+                if (!mBluetoothAdapter.isEnabled()) {
+                    Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                    startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
+                } else {
+                    if (SLAVE_MAC != null) {
+                        Intent service = new Intent(getActivity(), MasterService.class);
+                        service.putExtra("version", 1);
+                        service.putExtra("mac_address", SLAVE_MAC);
+                        getActivity().startService(service);
+                        infoText.setText(R.string.service_started);
+                    } else {
+                        Toast.makeText(getActivity(), R.string.select_bt_first, Toast.LENGTH_SHORT).show();
+
+                    }
+                }
             }
         });
 
@@ -418,7 +459,7 @@ public class MasterFragment extends Fragment implements Listener {
 
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
-            case REQUEST_CONNECT_DEVICE_SECURE:
+            case SELECT_SLAVE_DEVICE:
                 if (resultCode == Activity.RESULT_OK) {
                     SLAVE_MAC = data.getExtras().getString(DeviceListActivity.EXTRA_DEVICE_ADDRESS);
                     infoText.setText(R.string.start_service_available);
@@ -472,10 +513,10 @@ public class MasterFragment extends Fragment implements Listener {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
-            case R.id.secure_connect_scan: {
+            case R.id.select_slave: {
                 // Launch the DeviceListActivity to see devices and do scan
                 Intent serverIntent = new Intent(getActivity(), DeviceListActivity.class);
-                startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE_SECURE);
+                startActivityForResult(serverIntent, SELECT_SLAVE_DEVICE);
                 return true;
             }
             case R.id.insecure_connect_scan: {
@@ -542,6 +583,7 @@ public class MasterFragment extends Fragment implements Listener {
 
 
     private void getPermission(Context context, int whatPermission, String... permissions) {
+
 
         for (String permission : permissions) {
             if (ActivityCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {

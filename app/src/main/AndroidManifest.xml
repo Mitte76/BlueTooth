@@ -39,8 +39,9 @@
             android:configChanges="orientation|keyboardHidden"
             android:label="@string/select_device"
             android:theme="@android:style/Theme.Holo.Dialog"/>
+        <activity android:name=".MasterActivity" />
 
-        <service android:name=".BtService" />
+        <service android:name=".MasterService" />
     </application>
 
 </manifest>

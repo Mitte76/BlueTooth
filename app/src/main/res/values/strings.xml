@@ -34,6 +34,9 @@
     <string name="start_service_available">You can now start the service</string>
     <string name="service_started">The service is now started</string>
     <string name="service_stopped">Service stopped</string>
+    <string name="permission_explained">You will now be asked to grant some permissions for this app to work. Access to SMS is required but access to location and contacts is optional. (location is required if you want to search for new devices in the app anc acces to contacts is required if you want to see the name of the person texing if he is in your contacts)</string>
+    <string name="returned_from_app_settings_to_activity">You are now able to use this app.</string>
+    <string name="returned_from_app_settings_to_activity_SMS_not_granted">You need to give permission to SMS for this app to work.</string>
 
 
 </resources>
