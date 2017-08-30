@@ -18,7 +18,8 @@
               android:layout_width="match_parent"
               android:layout_height="match_parent"
               android:orientation="vertical" >
-
+    <include layout="@layout/toolbar">
+    </include>
     <ListView
         android:id="@+id/in"
         android:layout_width="match_parent"
@@ -32,6 +33,21 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal" >
 
+        <Button
+            android:id="@+id/slave_start_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Start Service"
+            style="?attr/buttonBarButtonStyle"/>
+
+        <Button
+            android:id="@+id/slave_stop_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Stop Service"
+            style="?attr/buttonBarButtonStyle"/>
     </LinearLayout>
 
 </LinearLayout>

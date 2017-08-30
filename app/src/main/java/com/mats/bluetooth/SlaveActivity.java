@@ -1,0 +1,311 @@
+package com.mats.bluetooth;
+
+import android.Manifest;
+import android.app.Activity;
+import android.app.ActivityManager;
+import android.bluetooth.BluetoothAdapter;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Message;
+import android.support.v4.app.ActivityCompat;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.mats.bluetooth.DbHelper.Database;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import pub.devrel.easypermissions.AppSettingsDialog;
+import pub.devrel.easypermissions.EasyPermissions;
+
+/**
+ * Created by mats on 2017-08-28.
+ */
+
+public class SlaveActivity extends AppCompatActivity implements EasyPermissions.PermissionCallbacks {
+    private Database dbHelper;
+
+    private static final String TAG = "SlaveActivity";
+    private Toolbar toolbar;
+    private Button mOffButton, mOnButton, mSlaveOffButton, mSlaveOnButton;
+    private TextView infoText;
+    private SlaveService mService;
+    private boolean mBound = false;
+
+    private BluetoothAdapter mBluetoothAdapter = null;
+    private SharedPreferences sharedpreferences;
+
+    private final String[] PERMISSIONS = {Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_CONTACTS, Manifest.permission.ACCESS_COARSE_LOCATION};
+    private final String[] SMS_PERMISSION = {Manifest.permission.RECEIVE_SMS};
+    private static final int REQUEST_ENABLE_BT = 3;
+    public static final String MYPREFERENCES = "BtPrefs";
+    private static final int SELECT_MASTER_DEVICE = 1;
+    private String SLAVE_MAC;
+
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.slave_fragment);
+        dbHelper = Database.getInstance(getApplicationContext());
+
+        toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        sharedpreferences = getSharedPreferences(MYPREFERENCES, Context.MODE_PRIVATE);
+
+
+        // If the adapter is null, then Bluetooth is not supported
+        if (mBluetoothAdapter == null) {
+            Toast.makeText(this, "Bluetooth is not available", Toast.LENGTH_LONG).show();
+            this.finish();
+        } else {
+
+            // If BT is not on, request that it be enabled.
+            if (!mBluetoothAdapter.isEnabled()) {
+                Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
+            }
+        }
+        init();
+
+        if (savedInstanceState == null) {
+
+        }
+    }
+
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+    }
+
+
+    private boolean isMyServiceRunning() {
+        ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if ("com.mats.bluetooth.MasterService".equals(service.service.getClassName())) {
+                return true;
+
+            }
+        }
+        return false;
+    }
+
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.select_slave: {
+                // Launch the DeviceListActivity to see devices and do scan
+                Intent serverIntent = new Intent(this, DeviceListActivity.class);
+                startActivityForResult(serverIntent, SELECT_MASTER_DEVICE);
+                return true;
+            }
+//            case R.id.insecure_connect_scan: {
+//                // Launch the DeviceListActivity to see devices and do scan
+//                Intent serverIntent = new Intent(getActivity(), DeviceListActivity.class);
+//                startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE_INSECURE);
+//                return true;
+//            }
+            case R.id.discoverable: {
+                // Ensure this device is discoverable by others
+//                ensureDiscoverable();
+                Cursor cursor = dbHelper.getSMS();
+
+                if (cursor != null) {
+                    cursor.moveToFirst();
+
+                    do {
+                        Log.d(TAG, "sendMessage: " + cursor.getString(1) + " " + cursor.getString(2) + " "
+                                + cursor.getString(3) + " " + cursor.getString(4));
+                    } while (cursor.moveToNext());
+
+
+                }
+
+//                Log.d(TAG, "sendMessage: " + Arrays.toString(cursor.getColumnNames()));
+
+//                Log.d(TAG, "onOptionsItemSelected: " + cursor.getColumnName(0));
+                return true;
+            }
+            case R.id.permission: {
+                testPermission(PERMISSIONS);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this);
+    }
+
+    private void init() {
+        mOnButton = (Button) findViewById(R.id.slave_start_btn);
+        mOffButton = (Button) findViewById(R.id.slave_stop_btn);
+        mSlaveOnButton = (Button) findViewById(R.id.button_s_on);
+        mSlaveOffButton = (Button) findViewById(R.id.button_s_off);
+        infoText = (TextView) findViewById(R.id.info);
+
+
+        mOnButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                // Send a message using content of the edit text widget
+
+//
+//                mChatService.stop();
+//                mBluetoothAdapter.cancelDiscovery();
+
+//                Log.d(TAG, "onClick: ");
+                if (!mBluetoothAdapter.isEnabled()) {
+                    Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                    startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
+                } else {
+                    Intent service = new Intent(getApplicationContext(), SlaveService.class);
+                    service.putExtra("version", 1);
+                    service.putExtra("mac_address", SLAVE_MAC);
+                    getApplicationContext().startService(service);
+//                        Toast.makeText(getApplicationContext(), R.string.service_started, Toast.LENGTH_SHORT).show();
+                }
+
+
+            }
+        });
+
+        mOffButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                // Send a message using content of the edit text widget
+
+                getApplicationContext().stopService(new Intent(getApplicationContext(), SlaveService.class));
+                Toast.makeText(getApplicationContext(), R.string.service_stopped, Toast.LENGTH_SHORT).show();
+
+            }
+        });
+
+
+    }
+
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        switch (requestCode) {
+
+            case REQUEST_ENABLE_BT:
+                // When the request to enable Bluetooth returns
+                if (resultCode == Activity.RESULT_OK) {
+                    // Bluetooth is now enabled, so set up a chat session
+//                    infoText.setText(R.string.select_bt_msg);
+                } else {
+                    // User did not enable Bluetooth or an error occurred
+//                    Log.d(TAG, "BT not enabled");
+                    Toast.makeText(this, R.string.bt_not_enabled_leaving,
+                            Toast.LENGTH_SHORT).show();
+                    this.finish();
+                }
+                break;
+            case AppSettingsDialog.DEFAULT_SETTINGS_REQ_CODE:
+                if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(this, R.string.returned_from_app_settings_to_activity, Toast.LENGTH_SHORT)
+                            .show();
+                } else {
+                    Toast.makeText(this, R.string.returned_from_app_settings_to_activity_SMS_not_granted, Toast.LENGTH_LONG)
+                            .show();
+                }
+                break;
+            case SELECT_MASTER_DEVICE:
+                if (resultCode == Activity.RESULT_OK) {
+                    SLAVE_MAC = data.getExtras().getString(DeviceListActivity.EXTRA_DEVICE_ADDRESS);
+                    Toast.makeText(getApplicationContext(), R.string.start_service_available, Toast.LENGTH_SHORT).show();
+
+//                    infoText.setText(R.string.start_service_available);
+
+                }
+                break;
+        }
+    }
+
+
+    private void testPermission(String... permissions) {
+
+        if (EasyPermissions.hasPermissions(this, permissions)) {
+            // Already have permission, do the thing
+            // ...
+            init();
+
+        } else {
+            // Do not have permissions, request them now
+            EasyPermissions.requestPermissions(this, getString(R.string.permission_explained),
+                    1, permissions);
+        }
+
+
+    }
+
+
+    @Override
+    public void onPermissionsDenied(int requestCode, List<String> perms) {
+//        Log.d(TAG, "onPermissionsDenied:" + requestCode + ":" + perms.size());
+
+        // (Optional) Check whether the user denied any permissions and checked "NEVER ASK AGAIN."
+        // This will display a dialog directing them to enable the permission in app settings.
+
+        if (perms.contains(Manifest.permission.RECEIVE_SMS)) {
+            new AppSettingsDialog.Builder(this).build().show();
+        }
+
+        if (EasyPermissions.somePermissionPermanentlyDenied(this, perms)) {
+            new AppSettingsDialog.Builder(this).build().show();
+        }
+    }
+
+    @Override
+    public void onPermissionsGranted(int requestCode, List<String> list) {
+
+        if (list.contains(Manifest.permission.RECEIVE_SMS)) {
+            init();
+        }
+
+    }
+
+    private void ensureDiscoverable() {
+        if (mBluetoothAdapter.getScanMode() !=
+                BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
+            Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+            discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
+            startActivity(discoverableIntent);
+        }
+    }
+
+
+}

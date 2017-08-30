@@ -68,11 +68,7 @@ public class MainActivity extends AppCompatActivity {
         });
         slaveButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-                SlaveFragment fragment = new SlaveFragment();
-                transaction.replace(R.id.sample_content_fragment, fragment);
-                transaction.commit();
-
+                slaveIntent();
             }
         });
     }
@@ -80,6 +76,11 @@ public class MainActivity extends AppCompatActivity {
     private void masterIntent(){
         Intent masterIntent = new Intent(this, MasterActivity.class);
         startActivity(masterIntent);
+    }
+
+    private void slaveIntent(){
+        Intent slaveIntent = new Intent(this, SlaveActivity.class);
+        startActivity(slaveIntent);
     }
 
 }

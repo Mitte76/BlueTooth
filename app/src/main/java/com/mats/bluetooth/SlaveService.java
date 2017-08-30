@@ -8,38 +8,43 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
-import android.database.Cursor;
-import android.net.Uri;
+import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
-import android.provider.ContactsContract;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
-import com.mats.bluetooth.listeners.SmsListener;
-import com.mats.bluetooth.listeners.SmsListener.Listener;
+import com.mats.bluetooth.DbHelper.Database;
+
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 /**
  * Created by mats on 2017-08-26.
  */
 
-public class SlaveService extends Service implements Listener {
+public class SlaveService extends Service {
+
+    private final IBinder mBinder = new LocalBinder();
+    private Database dbHelper;
+
+    private ArrayList<String> messageArrayList;
 
     final int handlerState = 0;                        //used to identify handler message
     Handler bluetoothIn;
     private BluetoothAdapter btAdapter = null;
-    private SmsListener mSmsListener;
-    private static final String TAG = "MasterService";
-    private ConnectingThread mConnectingThread;
+    private static final String TAG = "SlaveService";
+//    private ConnectingThread mConnectingThread;
     private ConnectedThread mConnectedThread;
     private AcceptThread mSecureAcceptThread;
+    public Boolean isRunning = false;
 
     private int mState;
     private boolean stopThread;
@@ -64,18 +69,6 @@ public class SlaveService extends Service implements Listener {
         Log.d("BT SERVICE", "SERVICE CREATED");
         stopThread = false;
 
-        Intent notificationIntent = new Intent(this, MainActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0,
-//                new Intent(this, MainActivity.class), 0);
-                notificationIntent, 0);
-
-        Notification notification = new NotificationCompat.Builder(this)
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle("BT Master")
-                .setContentText("Waiting for stuff to do.")
-                .setContentIntent(pendingIntent).build();
-        startForeground(1, notification);
-
     }
 
     @Override
@@ -84,16 +77,28 @@ public class SlaveService extends Service implements Listener {
         if (intent != null && intent.getExtras() != null) {
             VERSION = intent.getExtras().getInt("version");
             MAC_ADDRESS = intent.getExtras().getString("mac_address");
-
         }
+
+        Intent notificationIntent = new Intent(this, SlaveActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0,
+//                new Intent(this, MainActivity.class), 0);
+                notificationIntent, 0);
+
+        Notification notification = new NotificationCompat.Builder(this, "Android O")
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("BT Slave")
+                .setContentText("Waiting for stuff to do.")
+                .setContentIntent(pendingIntent).build();
+        startForeground(1, notification);
+        isRunning = true;
         bluetoothIn = new Handler() {
 
             public void handleMessage(android.os.Message msg) {
-                Log.d("DEBUG", "handleMessage");
                 if (msg.what == handlerState) {                 //if message is what we want
                     String readMessage = (String) msg.obj;      // msg.arg1 = bytes from connect thread
-                    recDataString.append(readMessage);          // `enter code here`
+                    recDataString.append(readMessage);
                     Log.d("RECORDED", recDataString.toString());
+                    sortMessage(recDataString.toString());
                     // Do stuff here with your data, like adding it to the database
                 }
                 recDataString.delete(0, recDataString.length());                    //clear all string data
@@ -101,43 +106,52 @@ public class SlaveService extends Service implements Listener {
         };
 
         btAdapter = BluetoothAdapter.getDefaultAdapter();       // get Bluetooth adapter
-        if(VERSION == MASTER) {
-            checkBTState();
-        } else{
-            if (mSecureAcceptThread == null) {
-                mSecureAcceptThread = new AcceptThread(true);
-                mSecureAcceptThread.start();
-            }
-        }
+        startListening();
+        messageArrayList = new ArrayList<String>();
+        dbHelper = Database.getInstance(getApplicationContext());
+//        return START_STICKY;
         return super.onStartCommand(intent, flags, startId);
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        bluetoothIn.removeCallbacksAndMessages(null);
+
+        Log.d(TAG, "onDestroy: " + btAdapter.getScanMode());
+//        bluetoothIn.removeCallbacksAndMessages(null);
         stopThread = true;
-
-        mSmsListener = new SmsListener();
-        mSmsListener.setListener(this);
-
+        if (mSecureAcceptThread != null) {
+            mSecureAcceptThread.cancel();
+            mSecureAcceptThread = null;
+        }
         if (mConnectedThread != null) {
             mConnectedThread.closeStreams();
         }
-        if (mConnectingThread != null) {
-            mConnectingThread.closeSocket();
-        }
+
+
+        btAdapter = null;
+//        if (mConnectingThread != null) {
+//            mConnectingThread.closeSocket();
+//        }
         Log.d("SERVICE", "onDestroy");
     }
+
+    public class LocalBinder extends Binder {
+        SlaveService getService() {
+            // Return this instance of LocalService so clients can call public methods
+            return SlaveService.this;
+        }
+    }
+
 
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        return mBinder;
     }
 
     //Checks that the Android device Bluetooth is available and prompts to be turned on if off
-    private void checkBTState() {
+/*    private void checkBTState() {
 
         if (btAdapter == null) {
             Log.d("BT SERVICE", "BLUETOOTH NOT SUPPORTED BY DEVICE, STOPPING SERVICE");
@@ -150,8 +164,6 @@ public class SlaveService extends Service implements Listener {
                     Log.d("DEBUG BT", "ATTEMPTING TO CONNECT TO REMOTE DEVICE : " + MAC_ADDRESS);
                     mConnectingThread = new ConnectingThread(device);
                     mConnectingThread.start();
-                    mSmsListener = new SmsListener();
-                    mSmsListener.setListener(this);
                 } catch (IllegalArgumentException e) {
                     Log.d("DEBUG BT", "PROBLEM WITH MAC ADDRESS : " + e.toString());
                     Log.d("BT SEVICE", "ILLEGAL MAC ADDRESS, STOPPING SERVICE");
@@ -162,116 +174,74 @@ public class SlaveService extends Service implements Listener {
                 stopSelf();
             }
         }
+    }*/
+
+    private void addToDb(String name, String number, String message, String time) {
+        dbHelper.addSMS(name, number, message, time);
     }
 
-    @Override
-    public void onTextReceived(String text) {
-        mConnectedThread.write("[SMS]");
-        Log.d(TAG, "onTextReceived: ");
-        final Handler handler = new Handler();
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                sendMessage();
-            }
-        }, 1000);
-    }
+    private void sortMessage(String message) {
+        List<String> list = new ArrayList<>(Arrays.asList(message.split("\\[SMS\\]")));
+        list.remove(0);
 
+        for (int j = 0; j < (list.size()); j++) {
+//                        String number = list.get(j).substring(list.get(j).indexOf("(") + 1, list.get(j).indexOf(")"));
 
-    private void sendMessage() {
+            Log.d(TAG, "handleMessage: Size" + list.size());
+            if (j != (list.size() - 1)) {
 
+                message = list.get(j).substring(0, list.get(j).length() - 2);
+                String number = message.substring(2, message.indexOf("|)"));
+                Log.d(TAG, "sortMessage: Number: " + number);
+                message = message.replaceFirst("\\(\\|(.*)\\|\\)", "");
+                String name = message.substring(1, message.indexOf(")"));
+                Log.d(TAG, "sortMessage: Name: " + name);
+                message = message.replaceFirst("\\(.*\\)\\(", "\\(");
+                String time = message.substring(1, message.indexOf(")"));
+                Log.d(TAG, "sortMessage: time: " + time);
+                message = message.replaceFirst("\\(.*\\)", "");
+                Log.d(TAG, "sortMessage: Message: " + message);
+                addToDb(name, number, message, time);
+//                messageArrayList.add(list.get(j).substring(0, list.get(j).length() - 1));
 
-        Cursor cursor = getContentResolver().query(Uri.parse("content://sms/inbox?simple=true"), null, "read = 0", null, null);
-        Log.d(TAG, "sendMessage: ");
-
-        if (cursor.moveToFirst()) { // must check the result to prevent exception
-            int i = 0;
-            ArrayList<String> mArrayList = new ArrayList<String>();
-            do {
-                if (cursor.getInt(7) == 0) {
-//                        Log.d(TAG, "sendMessage: " + cursor.getCount());
-                    String user1 = getContactName(cursor.getString(2));
-//                        Log.d(TAG, "sendMessage: " + user1);
-                    String user = getContactName(user1);
-                    mArrayList.add("[SMS]" + "(|" + cursor.getString(2) + "|)" + "(" + user /*cursor.getString(2)*/ + ") " + cursor.getString(12));
-                } else {
-                    Log.d(TAG, "sendMessage: Redan läst: " + cursor.getString(7));
-                }
-                i++;
-//                    cursor.moveToNext();
-
-
-            } while /*(i < 10)*/(cursor.moveToNext());
-            cursor.close();
-
-            if (mArrayList.size() > 0) {
-                // Get the message bytes and tell the BluetoothService to write
-//                            byte[] send = msgData.getBytes();
-                String send = mArrayList.toString();
-                mConnectedThread.write(send);
-
-                // Reset out string buffer to zero and clear the edit text field
-//                mConnectedThread.setLength(0);
-//                    mOutEditText.setText(mOutStringBuffer);
-            }
-
-        } else {
-            // empty box, no SMS
-            Log.d(TAG, "sendMessage: No sms");
-        }
-    }
-
-
-    private String getContactName(final String phoneNumber) {
-
-
-        String out = phoneNumber;
-
-        Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber));
-
-        String[] projection = new String[]{ContactsContract.PhoneLookup.DISPLAY_NAME};
-
-        String contactName = "";
-        Cursor cursor = getContentResolver().query(uri, projection, null, null, null);
-
-        if (cursor != null) {
-            if (cursor.moveToFirst()) {
-                contactName = cursor.getString(0);
-            }
-            cursor.close();
-//                    Log.d(TAG, "getContactName:" + contactName + ".");
-            if (contactName == "") {
-                out = phoneNumber;
             } else {
-                out = contactName;
+
+                message = list.get(j).substring(0, list.get(j).length() - 1);
+                String number = message.substring(2, message.indexOf("|)"));
+                Log.d(TAG, "sortMessage: Number: " + number);
+                message = message.replaceFirst("\\(\\|(.*)\\|\\)", "");
+                String name = message.substring(1, message.indexOf(")"));
+                Log.d(TAG, "sortMessage: Name: " + name);
+                message = message.replaceFirst("\\(.*\\)\\(", "\\(");
+                String time = message.substring(1, message.indexOf(")"));
+                Log.d(TAG, "sortMessage: time: " + time);
+                message = message.replaceFirst("\\(.*\\)", "");
+                Log.d(TAG, "sortMessage: Message: " + message);
+                addToDb(name, number, message, time);
+
+//                            getContactName(number, getContext());
             }
         }
-
-
-//        else {
-//            checkPermission(getContext(), Manifest.permission.READ_CONTACTS);
-//
-//            out = phoneNumber;
-//        }
-        return out;
     }
 
+    private void startListening() {
 
-
-
-
-
-
+        if (mSecureAcceptThread == null) {
+            mSecureAcceptThread = new AcceptThread(true);
+            mSecureAcceptThread.start();
+            Log.d(TAG, "onStartCommand: STARTED");
+        }
+    }
 
     public synchronized void connected(BluetoothSocket socket, BluetoothDevice
             device, final String socketType) {
 //        Log.d(TAG, "connected, Socket Type:" + socketType);
 
         // Cancel the thread that completed the connection
-        if (mConnectingThread != null) {
-            mConnectingThread.closeSocket();
-            mConnectingThread = null;
-        }
+//        if (mConnectingThread != null) {
+//            mConnectingThread.closeSocket();
+//            mConnectingThread = null;
+//        }
 
         // Cancel any thread currently running a connection
         if (mConnectedThread != null) {
@@ -294,15 +264,7 @@ public class SlaveService extends Service implements Listener {
     }
 
 
-
-
-
-
-
-
-
-
-    // New Class for Connecting Thread
+/*    // New Class for Connecting Thread
     private class ConnectingThread extends Thread {
         private final BluetoothSocket mmSocket;
         private final BluetoothDevice mmDevice;
@@ -370,7 +332,7 @@ public class SlaveService extends Service implements Listener {
                 stopSelf();
             }
         }
-    }
+    }*/
 
     // New Class for Connected Thread
     private class ConnectedThread extends Thread {
@@ -399,7 +361,7 @@ public class SlaveService extends Service implements Listener {
 
         public void run() {
             Log.d("DEBUG BT", "IN CONNECTED THREAD RUN");
-            byte[] buffer = new byte[256];
+            byte[] buffer = new byte[1024];
             int bytes;
 
             // Keep looping to listen for received messages
@@ -413,7 +375,7 @@ public class SlaveService extends Service implements Listener {
                 } catch (IOException e) {
                     Log.d("DEBUG BT", e.toString());
                     Log.d("BT SERVICE", "UNABLE TO READ/WRITE, STOPPING SERVICE");
-                    stopSelf();
+                    startListening();
                     break;
                 }
             }
@@ -457,7 +419,7 @@ public class SlaveService extends Service implements Listener {
 
             // Create a new listening server socket
             try {
-                    tmp = btAdapter.listenUsingRfcommWithServiceRecord("MasterService", BTMODULEUUID);
+                tmp = btAdapter.listenUsingRfcommWithServiceRecord("MasterService", BTMODULEUUID);
             } catch (IOException e) {
                 Log.e(TAG, "Socket Type: " + mSocketType + "listen() failed", e);
             }
@@ -519,8 +481,6 @@ public class SlaveService extends Service implements Listener {
             }
         }
     }
-
-
 
 
 }
