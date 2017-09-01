@@ -28,26 +28,4 @@
         android:stackFromBottom="true"
         android:transcriptMode="alwaysScroll" />
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal" >
-
-        <Button
-            android:id="@+id/slave_start_btn"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Start Service"
-            style="?attr/buttonBarButtonStyle"/>
-
-        <Button
-            android:id="@+id/slave_stop_btn"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Stop Service"
-            style="?attr/buttonBarButtonStyle"/>
-    </LinearLayout>
-
 </LinearLayout>

@@ -238,11 +238,6 @@ public class SlaveService extends Service {
 
     private void addToDb(String name, String number, String message, String time) {
         dbHelper.addSMS(name, number, message, time);
-        sendResult(1);
-        Intent intent = new Intent(getApplicationContext(), SlaveActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        intent.setAction("REFRESH");
-        startActivity(intent);
     }
 
     private void sortMessage(String message) {
@@ -250,43 +245,40 @@ public class SlaveService extends Service {
         list.remove(0);
 
         for (int j = 0; j < (list.size()); j++) {
-//                        String number = list.get(j).substring(list.get(j).indexOf("(") + 1, list.get(j).indexOf(")"));
-
             Log.d(TAG, "handleMessage: Size" + list.size());
             if (j != (list.size() - 1)) {
 
                 message = list.get(j).substring(0, list.get(j).length() - 2);
                 String number = message.substring(2, message.indexOf("|)"));
-                Log.d(TAG, "sortMessage: Number: " + number);
+//                Log.d(TAG, "sortMessage: Number: " + number);
                 message = message.replaceFirst("\\(\\|(.*)\\|\\)", "");
                 String name = message.substring(1, message.indexOf(")"));
-                Log.d(TAG, "sortMessage: Name: " + name);
+//                Log.d(TAG, "sortMessage: Name: " + name);
                 message = message.replaceFirst("\\(.*\\)\\(", "\\(");
                 String time = message.substring(1, message.indexOf(")"));
-                Log.d(TAG, "sortMessage: time: " + time);
+//                Log.d(TAG, "sortMessage: time: " + time);
                 message = message.replaceFirst("\\(.*\\)", "");
-                Log.d(TAG, "sortMessage: Message: " + message);
+//                Log.d(TAG, "sortMessage: Message: " + message);
                 addToDb(name, number, message, time);
-//                messageArrayList.add(list.get(j).substring(0, list.get(j).length() - 1));
 
             } else {
 
                 message = list.get(j).substring(0, list.get(j).length() - 1);
                 String number = message.substring(2, message.indexOf("|)"));
-                Log.d(TAG, "sortMessage: Number: " + number);
+//                Log.d(TAG, "sortMessage: Number: " + number);
                 message = message.replaceFirst("\\(\\|(.*)\\|\\)", "");
                 String name = message.substring(1, message.indexOf(")"));
-                Log.d(TAG, "sortMessage: Name: " + name);
+//                Log.d(TAG, "sortMessage: Name: " + name);
                 message = message.replaceFirst("\\(.*\\)\\(", "\\(");
                 String time = message.substring(1, message.indexOf(")"));
-                Log.d(TAG, "sortMessage: time: " + time);
+//                Log.d(TAG, "sortMessage: time: " + time);
                 message = message.replaceFirst("\\(.*\\)", "");
-                Log.d(TAG, "sortMessage: Message: " + message);
+//                Log.d(TAG, "sortMessage: Message: " + message);
                 addToDb(name, number, message, time);
 
-//                            getContactName(number, getContext());
             }
         }
+        mResultReceiver.send(1,null);
     }
 
     private void startListening() {

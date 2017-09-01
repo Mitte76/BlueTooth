@@ -3,10 +3,12 @@ package com.mats.bluetooth;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.bluetooth.BluetoothAdapter;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
+import android.content.IntentFilter;
 import android.database.Cursor;
+import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.os.ResultReceiver;
@@ -19,8 +21,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mats.bluetooth.DbHelper.Database;
@@ -32,26 +34,20 @@ import static com.mats.bluetooth.DbHelper.Database.KEY_MESSAGE;
 import static com.mats.bluetooth.DbHelper.Database.KEY_NAME;
 
 
-/**
- * Created by mats on 2017-08-28.
- */
-
 public class SlaveActivity extends AppCompatActivity implements AddingTaskDialogFragment2.ReplyMessageListener {
     private Database dbHelper;
-
+    private TextView toolbarText;
     private static final String TAG = "SlaveActivity";
-    private Toolbar toolbar;
-    private Button mOffButton, mOnButton, mSlaveOffButton, mSlaveOnButton;
-    private ListView mListviewNumber;
+    private ListView mListView;
     private ArrayAdapter<String> mMessageArrayAdapter;
     private ArrayList<String> mMessageNumberArray;
     private ArrayList<String> mMessageUserArray;
 
     private BluetoothAdapter mBluetoothAdapter = null;
-    private SharedPreferences sharedpreferences;
+//    private SharedPreferences sharedpreferences;
 
     private static final int REQUEST_ENABLE_BT = 3;
-    public static final String MYPREFERENCES = "BtPrefs";
+    //    public static final String MYPREFERENCES = "BtPrefs";
     public static final int REFRESH = 1;
 
 
@@ -60,11 +56,13 @@ public class SlaveActivity extends AppCompatActivity implements AddingTaskDialog
         super.onCreate(savedInstanceState);
         setContentView(R.layout.slave_activity);
         dbHelper = Database.getInstance(getApplicationContext());
-
-        toolbar = findViewById(R.id.toolbar);
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        toolbarText = findViewById(R.id.batteryText);
         setSupportActionBar(toolbar);
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        sharedpreferences = getSharedPreferences(MYPREFERENCES, Context.MODE_PRIVATE);
+        this.registerReceiver(this.mBatInfoReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+
+//        sharedpreferences = getSharedPreferences(MYPREFERENCES, Context.MODE_PRIVATE);
 
         if (isMyServiceRunning()) {
             Intent service = new Intent(getApplicationContext(), SlaveService.class);
@@ -89,9 +87,6 @@ public class SlaveActivity extends AppCompatActivity implements AddingTaskDialog
                 init();
             }
         }
-        if ("REFRESH".equals(getIntent().getAction())) {
-            redrawScreen();
-        }
 
 //        if (savedInstanceState == null) {
 //
@@ -103,42 +98,50 @@ public class SlaveActivity extends AppCompatActivity implements AddingTaskDialog
         @Override
         protected void onReceiveResult(int resultCode, Bundle resultData) {
 
-            switch (resultCode){
+            switch (resultCode) {
                 case REFRESH:
+                    Log.d(TAG, "onReceiveResult: ");
                     redrawScreen();
                     break;
             }
-
-
         }
     };
 
-    private void redrawScreen(){
+    private BroadcastReceiver mBatInfoReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context ctxt, Intent intent) {
+            int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0);
+//            Log.d(TAG, "onReceive: " + level);
+            if (toolbarText != null) {
+                toolbarText.setText(String.valueOf(level) + "%");
+            }
+        }
+    };
+
+    private void redrawScreen() {
 
         Cursor cursor = dbHelper.getSMS();
         SimpleCursorAdapter adapter = new SimpleCursorAdapter(getApplicationContext(), R.layout.list_reply_message, cursor,
                 new String[]{KEY_NAME, KEY_MESSAGE}, new int[]{R.id.list_number, R.id.list_message}, 0);
-        mListviewNumber.setAdapter(adapter);
+        mListView.setAdapter(adapter);
+        Log.d(TAG, "redrawScreen: Innan");
         if (cursor != null && cursor.getCount() > 0) {
             cursor.moveToFirst();
             do {
+                Log.d(TAG, "redrawScreen: " + cursor.getCount());
                 mMessageUserArray.add(cursor.getString(2));
                 mMessageNumberArray.add(cursor.getString(1));
                 mMessageArrayAdapter.add(cursor.getString(2) + ": " + cursor.getString(3));
-                Log.d(TAG, "sendMessage: " + cursor.getString(1) + " " + cursor.getString(2) + " "
-                        + cursor.getString(3) + " " + cursor.getString(4));
+//                Log.d(TAG, "sendMessage: " + cursor.getString(1) + " " + cursor.getString(2) + " "
+//                        + cursor.getString(3) + " " + cursor.getString(4));
             } while (cursor.moveToNext());
-            mListviewNumber.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
                 @Override
                 public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                    String value = (String) mMessageArrayAdapter.getItem(position);
-
                     if (mMessageNumberArray.get(position).substring(0, 1).equals("+")) {
                         android.support.v4.app.DialogFragment addingTaskDialogFragment2 = new AddingTaskDialogFragment2();
                         Bundle args = new Bundle();
-
                         args.putString("user", mMessageUserArray.get(position));
-
                         args.putString("number", mMessageNumberArray.get(position));
                         args.putString("message", mMessageArrayAdapter.getItem(position));
                         addingTaskDialogFragment2.setArguments(args);
@@ -176,7 +179,6 @@ public class SlaveActivity extends AppCompatActivity implements AddingTaskDialog
         for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
             if ("com.mats.bluetooth.SlaveService".equals(service.service.getClassName())) {
                 return true;
-
             }
         }
         return false;
@@ -185,7 +187,7 @@ public class SlaveActivity extends AppCompatActivity implements AddingTaskDialog
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main, menu);
+        getMenuInflater().inflate(R.menu.slave, menu);
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -193,31 +195,7 @@ public class SlaveActivity extends AppCompatActivity implements AddingTaskDialog
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
 
-            case R.id.discoverable: {
-                // Ensure this device is discoverable by others
-                ensureDiscoverable();
-                return true;
-            }
-
-        }
-        return false;
-    }
-
-    private void init() {
-        mOnButton = (Button) findViewById(R.id.slave_start_btn);
-        mOffButton = (Button) findViewById(R.id.slave_stop_btn);
-        mSlaveOnButton = (Button) findViewById(R.id.button_s_on);
-        mSlaveOffButton = (Button) findViewById(R.id.button_s_off);
-        mListviewNumber = findViewById(R.id.in);
-        mMessageArrayAdapter = new ArrayAdapter<String>(this, R.layout.message);
-        mMessageNumberArray = new ArrayList<>();
-        mMessageUserArray = new ArrayList<>();
-//        mListviewNumber.setAdapter(mMessageArrayAdapter);
-
-        mOnButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-
-
+            case R.id.start_service: {
                 if (!mBluetoothAdapter.isEnabled()) {
                     Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
                     startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
@@ -233,35 +211,37 @@ public class SlaveActivity extends AppCompatActivity implements AddingTaskDialog
                         Toast.makeText(getApplicationContext(), R.string.service_already_running, Toast.LENGTH_SHORT).show();
                     }
                 }
+                return true;
             }
-        });
-
-        mOffButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
+            case R.id.stop_service: {
                 if (isMyServiceRunning()) {
-                    // Send a message using content of the edit text widget
                     getApplicationContext().stopService(new Intent(getApplicationContext(), SlaveService.class));
                     Toast.makeText(getApplicationContext(), R.string.service_stopped, Toast.LENGTH_SHORT).show();
                 } else {
                     Toast.makeText(getApplicationContext(), R.string.service_not_running, Toast.LENGTH_SHORT).show();
-
                 }
+                return true;
             }
-        });
+        }
+        return false;
+    }
 
+    private void init() {
 
+        mListView = findViewById(R.id.in);
+        mMessageArrayAdapter = new ArrayAdapter<>(this, R.layout.message);
+        mMessageNumberArray = new ArrayList<>();
+        mMessageUserArray = new ArrayList<>();
     }
 
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
-
             case REQUEST_ENABLE_BT:
                 // When the request to enable Bluetooth returns
                 if (resultCode == Activity.RESULT_OK) {
                     Toast.makeText(this, R.string.bt_enabled,
                             Toast.LENGTH_SHORT).show();
                 } else {
-                    // User did not enable Bluetooth or an error occurred
                     Toast.makeText(this, R.string.bt_not_enabled,
                             Toast.LENGTH_SHORT).show();
                     this.finish();
@@ -269,16 +249,6 @@ public class SlaveActivity extends AppCompatActivity implements AddingTaskDialog
                 break;
         }
     }
-
-
-    private void ensureDiscoverable() {
-        if (mBluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
-            Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-            discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
-            startActivity(discoverableIntent);
-        }
-    }
-
 
     @Override
     public void onReply(String number, String text) {
@@ -288,7 +258,6 @@ public class SlaveActivity extends AppCompatActivity implements AddingTaskDialog
             service.putExtra("MESSAGE_TEXT", text);
             service.putExtra("MESSAGE_NUMBER", number);
             getApplicationContext().startService(service);
-
             Log.d(TAG, "onCreate: Running");
         }
         Log.d(TAG, "onReply: " + number + ": " + text);

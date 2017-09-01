@@ -1,0 +1,21 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    tools:ignore="AppCompatResource">
+    <item
+        android:id="@+id/select_slave"
+        android:icon="@drawable/ic_action_device_access_bluetooth_searching"
+        app:showAsAction="ifRoom"
+        android:title="@string/select_slave_device"/>
+
+
+    <item
+        android:id="@+id/start_service"
+        app:showAsAction="never"
+        android:title="@string/start_service"/>
+
+    <item
+        android:id="@+id/permission"
+        app:showAsAction="never"
+        android:title="@string/get_permission"/>
+</menu>

@@ -171,7 +171,7 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main, menu);
+        getMenuInflater().inflate(R.menu.master, menu);
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -184,13 +184,7 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
                 startActivityForResult(serverIntent, SELECT_SLAVE_DEVICE);
                 return true;
             }
-            case R.id.insecure_connect_scan: {
-                // Launch the DeviceListActivity to see devices and do scan
-                break;
-            }
-            case R.id.discoverable: {
-
-
+            case R.id.start_service: {
                 // Ensure this device is discoverable by others
                 ensureDiscoverable();
                 return true;
