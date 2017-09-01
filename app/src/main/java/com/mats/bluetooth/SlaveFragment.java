@@ -173,7 +173,7 @@ public class SlaveFragment extends Fragment implements AddingTaskDialogFragment2
 
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
-        mConversationView = (ListView) view.findViewById(R.id.in);
+//        mConversationView = (ListView) view.findViewById(R.id.list_number);
 //        mOutEditText = (EditText) view.findViewById(R.id.edit_text_out);
 //        mSendButton = (Button) view.findViewById(R.id.button_send);
 //        ((AppCompatActivity) getActivity()).getSupportActionBar().show();

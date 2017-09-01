@@ -8,6 +8,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
+import android.database.Cursor;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
@@ -33,7 +34,6 @@ import java.util.UUID;
 
 public class SlaveService extends Service {
 
-    private final IBinder mBinder = new LocalBinder();
     private Database dbHelper;
     private ResultReceiver mResultReceiver;
 
@@ -68,25 +68,37 @@ public class SlaveService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
 
-        if ("REGISTER_RECEIVER".equals(intent.getAction())) {
-            Log.d("BT SERVICE", "REGISTERING RECEIVER");
-            ResultReceiver receiver = intent.getParcelableExtra("ResultReceiver");
-            mResultReceiver = receiver;
-            sendResult(2);
+        if (intent != null) {
 
-        } else if ("UNREGISTER_RECEIVER".equals(intent.getAction())) {
-            // Extract the ResultReceiver ID and remove it from the map
+            if ("REGISTER_RECEIVER".equals(intent.getAction())) {
+                Log.d("BT SERVICE", "REGISTERING RECEIVER");
+                ResultReceiver receiver = intent.getParcelableExtra("ResultReceiver");
+                mResultReceiver = receiver;
+                sendResult(2);
 
-            mResultReceiver = null;
-        } else if ("FIRST_START".equals(intent.getAction())) {
+            } else if ("UNREGISTER_RECEIVER".equals(intent.getAction())) {
+                // Extract the ResultReceiver ID and remove it from the map
 
-            Log.d("BT SERVICE", "SERVICE STARTED");
-            ResultReceiver receiver = intent.getParcelableExtra("ResultReceiver");
-            mResultReceiver = receiver;
-            sendResult(1);
-            init();
+                mResultReceiver = null;
+            } else if ("SEND_MESSAGE".equals(intent.getAction())) {
+                String message  = intent.getStringExtra("MESSAGE_TEXT");
+                String number  = intent.getStringExtra("MESSAGE_NUMBER");
+                sendMessage(message, number);
+
+            } else if ("FIRST_START".equals(intent.getAction())) {
+
+                Log.d("BT SERVICE", "SERVICE STARTED");
+                ResultReceiver receiver = intent.getParcelableExtra("ResultReceiver");
+                mResultReceiver = receiver;
+                sendResult(3);
+                init();
+            }
+        } else {
+            Log.d(TAG, "onStartCommand: no resultreceiver for some reason");
         }
+
         return START_STICKY;
+
 //        return super.onStartCommand(intent, flags, startId);
     }
 
@@ -126,6 +138,67 @@ public class SlaveService extends Service {
 
     }
 
+    private void sendMessage(String message, String number) {
+
+        mConnectedThread.write("(SNDSMS)" + "(|" + number+"|)" + message);
+//        sendMessage("[SMS]" + "(|" + number+"|)" + message);
+
+//        Cursor cursor = dbHelper.getOneSMS(oldMessage, number);
+
+
+
+//        if (cursor != null && cursor.moveToFirst()) {
+//
+//            Log.d(TAG, "sendMessage: " + Arrays.toString(cursor.getColumnNames()));
+//            Log.d(TAG, "sendMessage: " + cursor.getString(1));
+//            Log.d(TAG, "sendMessage: " + cursor.getString(2));
+//
+
+
+//            int i = 0;
+////            Log.d(TAG, "sendMessage: " + cursor.getString(0) + " " + cursor.getString(4) + " " + cursor.getString(5));
+////            Log.d(TAG, "sendMessage: " + Arrays.toString(cursor.getColumnNames()));
+//            ArrayList<String> mArrayList = new ArrayList<String>();
+//            do {
+//                if (cursor.getInt(7) == 0) {
+//                    String user1 = getContactName(cursor.getString(2));
+//                    String user = getContactName(user1);
+//                    mArrayList.add("[SMS]" + "(|" + cursor.getString(2) + "|)" + "(" + user + ")" +
+//                            "(" + cursor.getString(4) + ")" + cursor.getString(12));
+//                } else {
+//                    Log.d(TAG, "sendMessage: Redan läst: " + cursor.getString(7));
+//                }
+//                i++;
+////                    cursor.moveToNext();
+//
+//
+//            } while /*(i < 10)*/(cursor.moveToNext());
+//            cursor.close();
+//
+//            if (mArrayList.size() > 0) {
+//                // Get the message bytes and tell the BluetoothService to write
+////                            byte[] send = msgData.getBytes();
+//
+//                String send = mArrayList.toString();
+//
+//                mConnectedThread.write(send);
+//
+//
+////                mConnectedThread.write(send);
+//
+//                // Reset out string buffer to zero and clear the edit text field
+////                mConnectedThread.setLength(0);
+////                    mOutEditText.setText(mOutStringBuffer);
+//            }
+//
+//        } else {
+//            // empty box, no SMS
+//            Log.d(TAG, "sendMessage: No sms");
+//        }
+//        mConnectedThread.closeStreams();
+
+    }
+
     @Override
     public void onDestroy() {
         super.onDestroy();
@@ -151,14 +224,6 @@ public class SlaveService extends Service {
         Log.d("SERVICE", "onDestroy");
     }
 
-    public class LocalBinder extends Binder {
-        SlaveService getService() {
-            // Return this instance of LocalService so clients can call public methods
-            return SlaveService.this;
-        }
-    }
-
-
     private void sendResult(int number) {
         if (mResultReceiver != null)
             mResultReceiver.send(number, null);
@@ -168,37 +233,16 @@ public class SlaveService extends Service {
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return mBinder;
+        return null;
     }
-
-    //Checks that the Android device Bluetooth is available and prompts to be turned on if off
-/*    private void checkBTState() {
-
-        if (btAdapter == null) {
-            Log.d("BT SERVICE", "BLUETOOTH NOT SUPPORTED BY DEVICE, STOPPING SERVICE");
-            stopSelf();
-        } else {
-            if (btAdapter.isEnabled()) {
-                Log.d("DEBUG BT", "BT ENABLED! BT ADDRESS : " + btAdapter.getAddress() + " , BT NAME : " + btAdapter.getName());
-                try {
-                    BluetoothDevice device = btAdapter.getRemoteDevice(MAC_ADDRESS);
-                    Log.d("DEBUG BT", "ATTEMPTING TO CONNECT TO REMOTE DEVICE : " + MAC_ADDRESS);
-                    mConnectingThread = new ConnectingThread(device);
-                    mConnectingThread.start();
-                } catch (IllegalArgumentException e) {
-                    Log.d("DEBUG BT", "PROBLEM WITH MAC ADDRESS : " + e.toString());
-                    Log.d("BT SEVICE", "ILLEGAL MAC ADDRESS, STOPPING SERVICE");
-                    stopSelf();
-                }
-            } else {
-                Log.d("BT SERVICE", "BLUETOOTH NOT ON, STOPPING SERVICE");
-                stopSelf();
-            }
-        }
-    }*/
 
     private void addToDb(String name, String number, String message, String time) {
         dbHelper.addSMS(name, number, message, time);
+        sendResult(1);
+        Intent intent = new Intent(getApplicationContext(), SlaveActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        intent.setAction("REFRESH");
+        startActivity(intent);
     }
 
     private void sortMessage(String message) {
@@ -390,7 +434,7 @@ public class SlaveService extends Service {
                 } catch (IOException e) {
                     Log.d("DEBUG BT", e.toString());
                     Log.d("BT SERVICE", "UNABLE TO READ/WRITE, STOPPING SERVICE");
-                    if (!doDestroy){
+                    if (!doDestroy) {
                         startListening();
                     } else {
                         stopSelf();

@@ -27,7 +27,6 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.UUID;
 
-import static android.R.id.text1;
 
 /**
  * Created by mats on 2017-08-26.
@@ -206,8 +205,16 @@ public class MasterService extends Service implements Listener {
         mResultReceiver.send(number, null);
     }
 
-    private void doStuff(String message){
+    private void doStuff(String message) {
         Log.d(TAG, "doStuff: " + message);
+        if (message.substring(0, 8).equals("(GETCON)")) {
+
+        } else if(message.substring(0, 8).equals("(SNDSMS)")){
+            String number = message.substring(message.indexOf("(|") + 2, message.indexOf("|)"));
+            message = message.replaceAll("\\(\\|.*\\|\\)", "");
+            message = message.replaceAll("\\(SNDSMS\\)", "");
+            sendSMS(message, number);
+        }
     }
 
 
@@ -412,14 +419,14 @@ public class MasterService extends Service implements Listener {
     }
 
 
-    private void sendSMS(String message) {
+    private void sendSMS(String message, String number) {
         Log.d(TAG, "sendSMS: " + message);
-        String number = message.substring(message.indexOf("(|") + 2, message.indexOf("|)"));
-        String test = message.replaceAll("\\(\\|.*\\|\\)", "");
+//        String number = message.substring(message.indexOf("(|") + 2, message.indexOf("|)"));
+//        String test = message.replaceAll("\\(\\|.*\\|\\)", "");
 
         Log.d(TAG, "sendSMS: Skickar till!" + number);
         SmsManager smsManager = SmsManager.getDefault();
-        smsManager.sendTextMessage(number, null, test, null, null);
+        smsManager.sendTextMessage(number, null, message, null, null);
 
     }
 

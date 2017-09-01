@@ -14,7 +14,7 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -22,19 +22,12 @@
               android:orientation="vertical" >
 
 
-    <FrameLayout
-        android:id="@+id/sample_content_fragment"
-        android:layout_weight="2"
-        android:layout_width="match_parent"
-        android:layout_height="0px"
-        >
 
         <Button
             android:id="@+id/master_btn"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignTop="@+id/imageView"
-            android:layout_toLeftOf="@+id/imageView"
             android:layout_toStartOf="@+id/imageView"
             android:text="@string/master" />
 
@@ -42,19 +35,16 @@
             android:id="@+id/slave_btn"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="100dp"
             android:layout_alignTop="@+id/imageView"
             android:layout_toEndOf="@+id/imageView"
-            android:layout_toRightOf="@+id/imageView"
             android:text="@string/slave" />
 
         <ImageView
             android:id="@+id/imageView"
-            android:layout_width="40px"
-            android:layout_height="40px"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:layout_centerHorizontal="true"
             android:layout_centerVertical="true"
             app:srcCompat="@drawable/ic_launcher" />
-</FrameLayout>
 
-</LinearLayout>
+</RelativeLayout>

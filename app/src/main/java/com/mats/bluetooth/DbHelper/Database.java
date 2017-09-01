@@ -3,6 +3,7 @@ package com.mats.bluetooth.DbHelper;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
@@ -18,7 +19,7 @@ public class Database extends SQLiteOpenHelper {
     private static final String SMS_TABLE = "sms_table";
     public static final String KEY_NUMBER = "number";
     public static final String KEY_NAME = "name";
-    private static final String KEY_MESSAGE = "message";
+    public static final String KEY_MESSAGE = "message";
     private static final String KEY_READ = "read";
     private static final String KEY_TIME = "time";
 
@@ -90,9 +91,35 @@ public class Database extends SQLiteOpenHelper {
         values.put(KEY_MESSAGE, message);
         values.put(KEY_TIME, time);
         values.put(KEY_READ, 0);
-        db.insertWithOnConflict(SMS_TABLE, null, values, SQLiteDatabase.CONFLICT_IGNORE);
+        db.insertWithOnConflict(SMS_TABLE, null, values, SQLiteDatabase.CONFLICT_REPLACE);
 
 //        return db.insert(SMS_TABLE, null, values);
+    }
+
+    public void clearSMS() {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(SMS_TABLE,null,null);
+
+//        return db.insert(SMS_TABLE, null, values);
+    }
+
+    public Cursor getOneSMS(String message, String number){
+        SQLiteDatabase db = this.getWritableDatabase();
+
+//        String selectQuery = "SELECT  * FROM " + SMS_TABLE + " WHERE " + KEY_MESSAGE
+//                + " = " + message + " AND ";
+
+//        DatabaseUtils.stringForQuery()
+
+        String select = String.format("SELECT * FROM %s WHERE %s = '%s';",
+                SMS_TABLE, KEY_NUMBER, number);
+
+/*
+        AND %s = '%s', KEY_NUMBER, number
+*/
+        Cursor c = db.rawQuery(select,null);
+
+        return c;
     }
 
 

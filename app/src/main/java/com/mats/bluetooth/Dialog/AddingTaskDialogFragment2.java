@@ -97,6 +97,7 @@ public class AddingTaskDialogFragment2 extends DialogFragment {
         inNumber = v.findViewById(R.id.inNumber);
         sendButton = v.findViewById(R.id.dialogSendBtn);
         editTextMessage = v.findViewById(R.id.dialogSendMessage);
+
         inMessage.setText(message);
 //        inNumber.setText(user);
 

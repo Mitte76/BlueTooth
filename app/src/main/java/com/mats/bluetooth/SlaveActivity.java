@@ -10,6 +10,7 @@ import android.database.Cursor;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.os.ResultReceiver;
+import android.support.v4.widget.SimpleCursorAdapter;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
@@ -27,6 +28,9 @@ import com.mats.bluetooth.Dialog.AddingTaskDialogFragment2;
 
 import java.util.ArrayList;
 
+import static com.mats.bluetooth.DbHelper.Database.KEY_MESSAGE;
+import static com.mats.bluetooth.DbHelper.Database.KEY_NAME;
+
 
 /**
  * Created by mats on 2017-08-28.
@@ -38,7 +42,7 @@ public class SlaveActivity extends AppCompatActivity implements AddingTaskDialog
     private static final String TAG = "SlaveActivity";
     private Toolbar toolbar;
     private Button mOffButton, mOnButton, mSlaveOffButton, mSlaveOnButton;
-    private ListView mListview;
+    private ListView mListviewNumber;
     private ArrayAdapter<String> mMessageArrayAdapter;
     private ArrayList<String> mMessageNumberArray;
     private ArrayList<String> mMessageUserArray;
@@ -48,6 +52,7 @@ public class SlaveActivity extends AppCompatActivity implements AddingTaskDialog
 
     private static final int REQUEST_ENABLE_BT = 3;
     public static final String MYPREFERENCES = "BtPrefs";
+    public static final int REFRESH = 1;
 
 
     @Override
@@ -84,6 +89,9 @@ public class SlaveActivity extends AppCompatActivity implements AddingTaskDialog
                 init();
             }
         }
+        if ("REFRESH".equals(getIntent().getAction())) {
+            redrawScreen();
+        }
 
 //        if (savedInstanceState == null) {
 //
@@ -94,42 +102,54 @@ public class SlaveActivity extends AppCompatActivity implements AddingTaskDialog
 
         @Override
         protected void onReceiveResult(int resultCode, Bundle resultData) {
-            Cursor cursor = dbHelper.getSMS();
-            if (cursor != null) {
-                cursor.moveToFirst();
-                do {
 
-                    mMessageUserArray.add(cursor.getString(2));
-                    mMessageNumberArray.add(cursor.getString(1));
-                    mMessageArrayAdapter.add(cursor.getString(2) + ": " + cursor.getString(3));
-                    Log.d(TAG, "sendMessage: " + cursor.getString(1) + " " + cursor.getString(2) + " "
-                            + cursor.getString(3) + " " + cursor.getString(4));
-                } while (cursor.moveToNext());
-                mListview.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-                    @Override
-                    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                        String value = (String) mMessageArrayAdapter.getItem(position);
-
-                        if (mMessageNumberArray.get(position).substring(0, 1).equals("+")) {
-                            android.support.v4.app.DialogFragment addingTaskDialogFragment2 = new AddingTaskDialogFragment2();
-                            Bundle args = new Bundle();
-
-                            args.putString("user", mMessageUserArray.get(position));
-
-                            args.putString("number", mMessageNumberArray.get(position));
-                            args.putString("message", mMessageArrayAdapter.getItem(position));
-//                    args.putInt("btnId", btnAdd.getId());
-                            addingTaskDialogFragment2.setArguments(args);
-                            addingTaskDialogFragment2.show(getSupportFragmentManager(), "AddingTaskDialogFragment");
-                        } else {
-                            Toast.makeText(getApplicationContext(), R.string.no_reply, Toast.LENGTH_SHORT).show();
-
-                        }
-                    }
-                });
+            switch (resultCode){
+                case REFRESH:
+                    redrawScreen();
+                    break;
             }
+
+
         }
     };
+
+    private void redrawScreen(){
+
+        Cursor cursor = dbHelper.getSMS();
+        SimpleCursorAdapter adapter = new SimpleCursorAdapter(getApplicationContext(), R.layout.list_reply_message, cursor,
+                new String[]{KEY_NAME, KEY_MESSAGE}, new int[]{R.id.list_number, R.id.list_message}, 0);
+        mListviewNumber.setAdapter(adapter);
+        if (cursor != null && cursor.getCount() > 0) {
+            cursor.moveToFirst();
+            do {
+                mMessageUserArray.add(cursor.getString(2));
+                mMessageNumberArray.add(cursor.getString(1));
+                mMessageArrayAdapter.add(cursor.getString(2) + ": " + cursor.getString(3));
+                Log.d(TAG, "sendMessage: " + cursor.getString(1) + " " + cursor.getString(2) + " "
+                        + cursor.getString(3) + " " + cursor.getString(4));
+            } while (cursor.moveToNext());
+            mListviewNumber.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                    String value = (String) mMessageArrayAdapter.getItem(position);
+
+                    if (mMessageNumberArray.get(position).substring(0, 1).equals("+")) {
+                        android.support.v4.app.DialogFragment addingTaskDialogFragment2 = new AddingTaskDialogFragment2();
+                        Bundle args = new Bundle();
+
+                        args.putString("user", mMessageUserArray.get(position));
+
+                        args.putString("number", mMessageNumberArray.get(position));
+                        args.putString("message", mMessageArrayAdapter.getItem(position));
+                        addingTaskDialogFragment2.setArguments(args);
+                        addingTaskDialogFragment2.show(getSupportFragmentManager(), "AddingTaskDialogFragment");
+                    } else {
+                        Toast.makeText(getApplicationContext(), R.string.no_reply, Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        }
+    }
 
 
     @Override
@@ -188,11 +208,11 @@ public class SlaveActivity extends AppCompatActivity implements AddingTaskDialog
         mOffButton = (Button) findViewById(R.id.slave_stop_btn);
         mSlaveOnButton = (Button) findViewById(R.id.button_s_on);
         mSlaveOffButton = (Button) findViewById(R.id.button_s_off);
-        mListview = findViewById(R.id.in);
+        mListviewNumber = findViewById(R.id.in);
         mMessageArrayAdapter = new ArrayAdapter<String>(this, R.layout.message);
         mMessageNumberArray = new ArrayList<>();
         mMessageUserArray = new ArrayList<>();
-        mListview.setAdapter(mMessageArrayAdapter);
+//        mListviewNumber.setAdapter(mMessageArrayAdapter);
 
         mOnButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -262,7 +282,17 @@ public class SlaveActivity extends AppCompatActivity implements AddingTaskDialog
 
     @Override
     public void onReply(String number, String text) {
+        if (isMyServiceRunning()) {
+            Intent service = new Intent(getApplicationContext(), SlaveService.class);
+            service.setAction("SEND_MESSAGE");
+            service.putExtra("MESSAGE_TEXT", text);
+            service.putExtra("MESSAGE_NUMBER", number);
+            getApplicationContext().startService(service);
 
+            Log.d(TAG, "onCreate: Running");
+        }
         Log.d(TAG, "onReply: " + number + ": " + text);
     }
+
+
 }

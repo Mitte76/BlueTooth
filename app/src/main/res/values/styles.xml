@@ -23,17 +23,5 @@
 
     </style>
 
-    <style name="ToolbarTheme" parent="ParentMaterialTheme">
-        <item name="android:textColorPrimary">@color/icons</item>
-        <item name="android:textColorSecondary">@color/icons</item>
-        <item name="android:background">@color/primary</item>
 
-
-    </style>
-
-    <style name="PopupTheme" parent="ThemeOverlay.AppCompat.Light">
-        <item name="android:textColorPrimary">#101010</item>
-        <item name="android:background">#494848</item>
-    </style>
-
-</resources>
+ </resources>
