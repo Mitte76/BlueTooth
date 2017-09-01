@@ -13,6 +13,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
+import android.support.v4.os.ResultReceiver;
 import android.util.Log;
 
 import com.mats.bluetooth.DbHelper.Database;
@@ -34,6 +35,7 @@ public class SlaveService extends Service {
 
     private final IBinder mBinder = new LocalBinder();
     private Database dbHelper;
+    private ResultReceiver mResultReceiver;
 
     private ArrayList<String> messageArrayList;
 
@@ -41,23 +43,16 @@ public class SlaveService extends Service {
     Handler bluetoothIn;
     private BluetoothAdapter btAdapter = null;
     private static final String TAG = "SlaveService";
-//    private ConnectingThread mConnectingThread;
     private ConnectedThread mConnectedThread;
     private AcceptThread mSecureAcceptThread;
-    public Boolean isRunning = false;
+    public Boolean isRunning, doDestroy = false;
+
 
     private int mState;
     private boolean stopThread;
     // SPP UUID service - this should work for most devices
     private static final UUID BTMODULEUUID = UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66");
-    //    private static final UUID BTMODULEUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-    // String for MAC address
-//    private static final String MAC_ADDRESS = "DC:66:72:B7:BB:48";
-    private static String MAC_ADDRESS;
-    private int VERSION;
     private StringBuilder recDataString = new StringBuilder();
-    public static final int MASTER = 0;
-    public static final int SLAVE = 1;
     public static final int STATE_NONE = 0;       // we're doing nothing
     public static final int STATE_LISTEN = 1;     // now listening for incoming connections
     public static final int STATE_CONNECTING = 2; // now initiating an outgoing connection
@@ -68,16 +63,34 @@ public class SlaveService extends Service {
         super.onCreate();
         Log.d("BT SERVICE", "SERVICE CREATED");
         stopThread = false;
-
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d("BT SERVICE", "SERVICE STARTED");
-        if (intent != null && intent.getExtras() != null) {
-            VERSION = intent.getExtras().getInt("version");
-            MAC_ADDRESS = intent.getExtras().getString("mac_address");
+
+        if ("REGISTER_RECEIVER".equals(intent.getAction())) {
+            Log.d("BT SERVICE", "REGISTERING RECEIVER");
+            ResultReceiver receiver = intent.getParcelableExtra("ResultReceiver");
+            mResultReceiver = receiver;
+            sendResult(2);
+
+        } else if ("UNREGISTER_RECEIVER".equals(intent.getAction())) {
+            // Extract the ResultReceiver ID and remove it from the map
+
+            mResultReceiver = null;
+        } else if ("FIRST_START".equals(intent.getAction())) {
+
+            Log.d("BT SERVICE", "SERVICE STARTED");
+            ResultReceiver receiver = intent.getParcelableExtra("ResultReceiver");
+            mResultReceiver = receiver;
+            sendResult(1);
+            init();
         }
+        return START_STICKY;
+//        return super.onStartCommand(intent, flags, startId);
+    }
+
+    private void init() {
 
         Intent notificationIntent = new Intent(this, SlaveActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0,
@@ -109,13 +122,15 @@ public class SlaveService extends Service {
         startListening();
         messageArrayList = new ArrayList<String>();
         dbHelper = Database.getInstance(getApplicationContext());
-//        return START_STICKY;
-        return super.onStartCommand(intent, flags, startId);
+
+
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
+
+        doDestroy = true;
 
         Log.d(TAG, "onDestroy: " + btAdapter.getScanMode());
 //        bluetoothIn.removeCallbacksAndMessages(null);
@@ -141,6 +156,12 @@ public class SlaveService extends Service {
             // Return this instance of LocalService so clients can call public methods
             return SlaveService.this;
         }
+    }
+
+
+    private void sendResult(int number) {
+        if (mResultReceiver != null)
+            mResultReceiver.send(number, null);
     }
 
 
@@ -235,13 +256,7 @@ public class SlaveService extends Service {
 
     public synchronized void connected(BluetoothSocket socket, BluetoothDevice
             device, final String socketType) {
-//        Log.d(TAG, "connected, Socket Type:" + socketType);
-
-        // Cancel the thread that completed the connection
-//        if (mConnectingThread != null) {
-//            mConnectingThread.closeSocket();
-//            mConnectingThread = null;
-//        }
+        Log.d(TAG, "connected, Socket Type:" + socketType);
 
         // Cancel any thread currently running a connection
         if (mConnectedThread != null) {
@@ -375,7 +390,11 @@ public class SlaveService extends Service {
                 } catch (IOException e) {
                     Log.d("DEBUG BT", e.toString());
                     Log.d("BT SERVICE", "UNABLE TO READ/WRITE, STOPPING SERVICE");
-                    startListening();
+                    if (!doDestroy){
+                        startListening();
+                    } else {
+                        stopSelf();
+                    }
                     break;
                 }
             }
@@ -425,6 +444,7 @@ public class SlaveService extends Service {
             }
             mmServerSocket = tmp;
             mState = STATE_LISTEN;
+
         }
 
         public void run() {

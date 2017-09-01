@@ -168,7 +168,7 @@ public class MasterFragment extends Fragment implements Listener {
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.master_fragment, container, false);
+        return inflater.inflate(R.layout.master_activity, container, false);
     }
 
     @Override
@@ -480,7 +480,7 @@ public class MasterFragment extends Fragment implements Listener {
                 } else {
                     // User did not enable Bluetooth or an error occurred
 //                    Log.d(TAG, "BT not enabled");
-                    Toast.makeText(getActivity(), R.string.bt_not_enabled_leaving,
+                    Toast.makeText(getActivity(), R.string.bt_not_enabled,
                             Toast.LENGTH_SHORT).show();
                     getActivity().finish();
                 }

@@ -57,7 +57,7 @@ import java.util.List;
 /**
  * This fragment controls Bluetooth to communicate with other devices.
  */
-public class SlaveFragment extends Fragment implements AddingTaskDialogFragment2.AddingTaskListener{
+public class SlaveFragment extends Fragment implements AddingTaskDialogFragment2.ReplyMessageListener {
 
     private static final String TAG = SlaveFragment.class.getSimpleName();
 
@@ -168,7 +168,7 @@ public class SlaveFragment extends Fragment implements AddingTaskDialogFragment2
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.slave_fragment, container, false);
+        return inflater.inflate(R.layout.slave_activity, container, false);
     }
 
     @Override
@@ -432,7 +432,7 @@ public class SlaveFragment extends Fragment implements AddingTaskDialogFragment2
                 } else {
                     // User did not enable Bluetooth or an error occurred
                     Log.d(TAG, "BT not enabled");
-                    Toast.makeText(getActivity(), R.string.bt_not_enabled_leaving,
+                    Toast.makeText(getActivity(), R.string.bt_not_enabled,
                             Toast.LENGTH_SHORT).show();
                     getActivity().finish();
                 }

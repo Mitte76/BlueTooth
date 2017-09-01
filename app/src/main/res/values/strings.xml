@@ -3,7 +3,8 @@
 
 
     <string name="not_connected">You are not connected to a device</string>
-    <string name="bt_not_enabled_leaving">Bluetooth was not enabled. Leaving Bluetooth.</string>
+    <string name="bt_not_enabled">Bluetooth was not enabled. You need to enable bluetooth to be able to use this app.</string>
+    <string name="bt_enabled">Bluetooth is now enabled.</string>
     <string name="title_connecting">connecting...</string>
     <string name="title_connected_to_slave">Slave: <xliff:g id="device_name">%1$s</xliff:g></string>
     <string name="title_connected_to_master">Master: <xliff:g id="device_name">%1$s</xliff:g></string>
@@ -36,7 +37,9 @@
     <string name="service_stopped">Service stopped</string>
     <string name="permission_explained">You will now be asked to grant some permissions for this app to work. Access to SMS is required but access to location and contacts is optional. (location is required if you want to search for new devices in the app anc acces to contacts is required if you want to see the name of the person texing if he is in your contacts)</string>
     <string name="returned_from_app_settings_to_activity">You are now able to use this app.</string>
-    <string name="returned_from_app_settings_to_activity_SMS_not_granted">You need to give permission to SMS for this app to work.</string>
+    <string name="returned_from_app_settings_to_activity_SMS_not_granted">You need to give the SMS permission to use this app.</string>
+    <string name="service_already_running">Your service is already running!</string>
+    <string name="service_not_running">Your service is not running!</string>
 
 
 </resources>

@@ -1,11 +1,7 @@
 package com.mats.bluetooth.Dialog;
 
-import android.app.AlertDialog;
-import android.app.Dialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.DialogFragment;
 import android.util.Log;
@@ -25,37 +21,44 @@ import com.mats.bluetooth.R;
 //import com.shopper.android.fragments.DbHelper.Database;
 
 
-public class AddingTaskDialogFragment2 extends DialogFragment{
-    public interface AddingTaskListener {
+public class AddingTaskDialogFragment2 extends DialogFragment {
+    public interface ReplyMessageListener {
         void onReply(String number, String text);
 
     }
+
     private final String TAG = AddingTaskDialogFragment2.class.getSimpleName();
-//    private ListView listView;
+    //    private ListView listView;
 //    private SwipeCursorAdapter listAdapter;
 //    private Database dbHelper;
-    private String mNum;
-    private int btnId;
+    private String number, user, message;
+
     private String title = "test";
     private String hint;
     private String searchText = "";
     private boolean itemAdded = false;
-    private EditText search;
-    private AddingTaskListener mAddingTaskListener;
+    private EditText editTextMessage;
+    private TextView inMessage, inNumber;
+    private Button sendButton;
+    private ReplyMessageListener mReplyMessageListener;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
-        mNum = getArguments().getString("num");
-        btnId = getArguments().getInt("btnId");
-        try {
-            mAddingTaskListener = (AddingTaskListener) getTargetFragment();
-//            Log.d(TAG, "onCreate: test");
-        } catch (ClassCastException e) {
-            throw new ClassCastException(getTargetFragment().toString() + " must implement AddingTaskListener");
-        }
-//        switch (btnId){
+        user = getArguments().getString("user");
+        number = getArguments().getString("number");
+        message = getArguments().getString("message");
+        setStyle(DialogFragment.STYLE_NORMAL,android.R.style.Theme_Holo_Light_NoActionBar);
+//        setStyle(DialogFragment.STYLE_NORMAL,android.R.style.Theme_Translucent_NoTitleBar_Fullscreen);
+        Log.d(TAG, "onCreate: ");
+//        try {
+//            mReplyMessageListener = (ReplyMessageListener) getTargetFragment();
+////            Log.d(TAG, "onCreate: test");
+//        } catch (ClassCastException e) {
+//            throw new ClassCastException(getTargetFragment().toString() + " must implement ReplyMessageListener");
+//        }
+//        switch (message){
 //            case R.id.list_fab:
 //                title = getString(R.string.dialog_add_list);
 //                hint = getString(R.string.dialog_add_list_hint);
@@ -68,19 +71,19 @@ public class AddingTaskDialogFragment2 extends DialogFragment{
 
 
     }
-//    private AddingTaskListener mAddingTaskListener;
-
-
+//    private ReplyMessageListener mReplyMessageListener;
 
 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-//        try {
-//            mAddingTaskListener = (AddingTaskListener) getTargetFragment();
-//        } catch (ClassCastException e) {
-//            throw new ClassCastException(context.toString() + " must implement AddingTaskListener");
-//        }
+        try {
+            mReplyMessageListener = (ReplyMessageListener) context;
+            Log.d(TAG, "onAttach: ");
+        } catch (ClassCastException e) {
+            throw new ClassCastException(context.toString() + " must implement ReplyMessageListener");
+        }
+
     }
 
 
@@ -88,42 +91,65 @@ public class AddingTaskDialogFragment2 extends DialogFragment{
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         getDialog().setCanceledOnTouchOutside(false);
+        getDialog().getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+        View v = inflater.inflate(R.layout.dialog_task2, container, false);
+        inMessage = v.findViewById(R.id.inMessage);
+        inNumber = v.findViewById(R.id.inNumber);
+        sendButton = v.findViewById(R.id.dialogSendBtn);
+        editTextMessage = v.findViewById(R.id.dialogSendMessage);
+        inMessage.setText(message);
+//        inNumber.setText(user);
 
-        return super.onCreateView(inflater, container, savedInstanceState);
+        sendButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mReplyMessageListener.onReply(number, editTextMessage.getText().toString());
+                dismiss();
+            }
+        });
+                Log.d(TAG, "onCreateView: ");
+
+        return v;
+
+//        return super.onCreateView(inflater, container, savedInstanceState);
     }
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        getDialog().getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+//        getDialog().getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
+//        getDialog().getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
     }
 
+/*
     @NonNull
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
+        Log.d(TAG, "onCreateDialog: ");
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
 //        dbHelper = Database.getInstance(getContext());
         View view = getActivity().getLayoutInflater().inflate(R.layout.dialog_task2, null);
 //        listView = (ListView) view.findViewById(R.id.dialog_list);
         search = (EditText) view.findViewById(R.id.dialogSearch);
 
-                search.setHint(hint);
+        search.setHint(hint);
         final Button btnAdd = (Button) view.findViewById(R.id.dialog_add);
 //        btnAdd.setOnClickListener(new View.OnClickListener() {
 //            @Override
 //            public void onClick(View v) {
 //
-//                    switch (btnId) {
+//                    switch (message) {
 //                        case R.id.list_fab:
 //                            long listNo = dbHelper.createList(makePerfect(search.getText().toString()));
-//                            mAddingTaskListener.onListAdded(listNo);
+//                            mReplyMessageListener.onListAdded(listNo);
 //                            search.setText("");
 //                            Toast.makeText(getContext(), "List " + search.getText().toString() + " created", Toast.LENGTH_SHORT).show();
 //                            dismiss();
 //                            break;
 //                        case R.id.item_fab:
-//                            dbHelper.createItem(makePerfect(search.getText().toString()), "default", mNum);
-//                            mAddingTaskListener.onItemAdded(mNum);
+//                            dbHelper.createItem(makePerfect(search.getText().toString()), "default", number);
+//                            mReplyMessageListener.onItemAdded(number);
 //                            search.setText("");
 //                            Toast.makeText(getContext(), search.getText().toString() + " added to list", Toast.LENGTH_SHORT).show();
 //                            itemAdded = true;
@@ -132,14 +158,15 @@ public class AddingTaskDialogFragment2 extends DialogFragment{
 //            }
 //        });
 
+//        getDialog().setTitle("Reply to SMS");
 
-        builder/*.setTitle(title)*/
+        builder.setTitle("Reply to SMS")
                 .setView(view);
 //        builder.setPositiveButton(R.string.dialog_ok, new DialogInterface.OnClickListener() {
 //            @Override
 //            public void onClick(DialogInterface dialog, int which) {
 //                if(itemAdded) {
-//                    mAddingTaskListener.onTaskAddingCancel();
+//                    mReplyMessageListener.onTaskAddingCancel();
 //                }
 //                dialog.cancel();
 //            }
@@ -162,16 +189,16 @@ public class AddingTaskDialogFragment2 extends DialogFragment{
 //                        if (s.length() == 0) {
 //                            btnAdd.setVisibility(View.GONE);
 //
-//                            if(btnId != R.id.list_fab){
-//                                listAdapter.changeCursor(dbHelper.getAutocomplete(search.getText().toString(),mNum ));
+//                            if(message != R.id.list_fab){
+//                                listAdapter.changeCursor(dbHelper.getAutocomplete(search.getText().toString(),number ));
 //                            }
 //
 //                        } else {
 //                            btnAdd.setVisibility(View.VISIBLE);
 //
 //
-//                            if(btnId != R.id.list_fab){
-//                                listAdapter.changeCursor(dbHelper.getAutocomplete(search.getText().toString(),mNum));
+//                            if(message != R.id.list_fab){
+//                                listAdapter.changeCursor(dbHelper.getAutocomplete(search.getText().toString(),number));
 //                            }
 //                        }
 //                        searchText = search.getText().toString();
@@ -187,11 +214,12 @@ public class AddingTaskDialogFragment2 extends DialogFragment{
         alertDialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED);
         search.setOnEditorActionListener(mWriteListener);
 
-//        Log.d("dd", "onEditorAction: " + mAddingTaskListener);
+//        Log.d("dd", "onEditorAction: " + mReplyMessageListener);
 
 
-        return alertDialog;
+        return builder.create();
     }
+*/
     private TextView.OnEditorActionListener mWriteListener
             = new TextView.OnEditorActionListener() {
         public boolean onEditorAction(TextView view, int actionId, KeyEvent event) {
@@ -201,8 +229,8 @@ public class AddingTaskDialogFragment2 extends DialogFragment{
                 Toast.makeText(getActivity(), message,
                         Toast.LENGTH_LONG).show();
             }
-            Log.d("dd", "onEditorAction: " + actionId + " : " + EditorInfo.IME_NULL + " : " + mAddingTaskListener);
-            mAddingTaskListener.onReply(mNum, search.getText().toString());
+            Log.d("dd", "onEditorAction: " + actionId + " : " + EditorInfo.IME_NULL + " : " + mReplyMessageListener);
+            mReplyMessageListener.onReply(number, editTextMessage.getText().toString());
             dismiss();
             return true;
         }
@@ -210,21 +238,19 @@ public class AddingTaskDialogFragment2 extends DialogFragment{
 //    @Override
 //    public void onAddItemFromDialog(String item,String category) {
 //        Log.d("TAG", "onAddItemFromDialog: hvhjvjh" + category);
-//        dbHelper.createItem(item,category,mNum);
-//        mAddingTaskListener.onItemAdded(mNum);
-//        listAdapter.changeCursor(dbHelper.getAutocomplete(searchText,mNum));
+//        dbHelper.createItem(item,category,number);
+//        mReplyMessageListener.onItemAdded(number);
+//        listAdapter.changeCursor(dbHelper.getAutocomplete(searchText,number));
 //        itemAdded = true;
 //        Toast.makeText(getContext(), item + " added to list", Toast.LENGTH_SHORT).show();
 //
 //    }
 
-    public String makePerfect(String inString){
+    public String makePerfect(String inString) {
 
 
         return inString.substring(0, 1).toUpperCase() + inString.substring(1).toLowerCase();
     }
-
-
 
 
 }

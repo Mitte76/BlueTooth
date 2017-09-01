@@ -40,11 +40,17 @@
             android:label="@string/select_device"
             android:theme="@android:style/Theme.Holo.Dialog"/>
         <activity android:name=".MasterActivity"
-            android:screenOrientation="portrait"/>
+            android:screenOrientation="portrait"
+            android:launchMode="singleTask"
+            />
         <activity android:name=".SlaveActivity"
-            android:screenOrientation="portrait"/>
+            android:screenOrientation="portrait"
+            android:launchMode="singleTask"
+            />
 
-        <service android:name=".MasterService" />
+        <service android:name=".MasterService"
+            android:showOnLockScreen="true"
+            />
         <service android:name=".SlaveService" />
     </application>
 

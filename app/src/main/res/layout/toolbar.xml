@@ -16,13 +16,7 @@
         android:orientation="horizontal"
         android:layout_gravity="start"
         >
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/toolar_textview"
-            android:layout_marginRight="16dp"
-            android:layout_marginEnd="16dp"
-            />
+
 
 
     </LinearLayout>

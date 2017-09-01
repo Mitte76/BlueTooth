@@ -137,7 +137,7 @@ public class DeviceListActivity extends Activity {
             mBtAdapter.cancelDiscovery();
         }
 
-        // Unregister broadcast listeners
+//         Unregister broadcast listeners
 //        this.unregisterReceiver(mReceiver);
     }
     @Override
