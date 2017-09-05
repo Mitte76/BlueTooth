@@ -8,18 +8,21 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
-import android.database.Cursor;
-import android.os.Binder;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.os.ResultReceiver;
+import android.util.Base64;
 import android.util.Log;
+import android.util.StringBuilderPrinter;
 
 import com.mats.bluetooth.DbHelper.Database;
 
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -46,7 +49,6 @@ public class SlaveService extends Service {
     private ConnectedThread mConnectedThread;
     private AcceptThread mSecureAcceptThread;
     public Boolean isRunning, doDestroy = false;
-
 
     private int mState;
     private boolean stopThread;
@@ -81,9 +83,16 @@ public class SlaveService extends Service {
 
                 mResultReceiver = null;
             } else if ("SEND_MESSAGE".equals(intent.getAction())) {
-                String message  = intent.getStringExtra("MESSAGE_TEXT");
-                String number  = intent.getStringExtra("MESSAGE_NUMBER");
-                sendMessage(message, number);
+                String message = intent.getStringExtra("MESSAGE_TEXT");
+                String number = intent.getStringExtra("MESSAGE_NUMBER");
+                sendMessage(message, number, null, "SMS");
+
+            } else if ("MARK_READ".equals(intent.getAction())) {
+                String id = intent.getStringExtra("MESSAGE_ID");
+                String message = intent.getStringExtra("MESSAGE_TEXT");
+                String number = intent.getStringExtra("MESSAGE_NUMBER");
+
+                sendMessage(message, number, id, "MARK_READ");
 
             } else if ("FIRST_START".equals(intent.getAction())) {
 
@@ -104,7 +113,7 @@ public class SlaveService extends Service {
 
     private void init() {
 
-        Intent notificationIntent = new Intent(this, SlaveActivity.class);
+        Intent notificationIntent = new Intent(this, SmsActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0,
 //                new Intent(this, MainActivity.class), 0);
                 notificationIntent, 0);
@@ -115,22 +124,44 @@ public class SlaveService extends Service {
                 .setContentText("Waiting for stuff to do.")
                 .setContentIntent(pendingIntent).build();
         startForeground(1, notification);
-        isRunning = true;
+        btAdapter = BluetoothAdapter.getDefaultAdapter();       // get Bluetooth adapter
+
+        isRunning = true;/*
         bluetoothIn = new Handler() {
 
             public void handleMessage(android.os.Message msg) {
                 if (msg.what == handlerState) {                 //if message is what we want
                     String readMessage = (String) msg.obj;      // msg.arg1 = bytes from connect thread
                     recDataString.append(readMessage);
-                    Log.d("RECORDED", recDataString.toString());
-                    sortMessage(recDataString.toString());
                     // Do stuff here with your data, like adding it to the database
                 }
-                recDataString.delete(0, recDataString.length());                    //clear all string data
+
+                if (recDataString.toString().contains("[END12:12:12]")){
+                    Log.d(TAG, "handleMessage: Slut: " + recDataString.toString());
+                    sortMessage();
+                } else {
+
+                }
+
+
+//                if (recDataString.toString().contains("[END12:12:12]") && smallMessage) {
+//                    Log.d(TAG, "handleMessage: " + recDataString);
+//                    sortMessage(recDataString.toString());
+//                    recDataString.delete(0, recDataString.length());                    //clear all string data
+//                    Log.d(TAG, "handleMessage: " + fullMsg.toString());
+//
+//                } else if (recDataString.toString().contains("[END12:12:12]") && !smallMessage){
+//                    sortMessage(fullMsg.toString());
+//                    Log.d(TAG, "handleMessage: " + fullMsg.toString());
+//
+//                } else {
+//                    smallMessage = false;
+//                    fullMsg.append(recDataString.toString()) ;
+//                }
+
             }
         };
-
-        btAdapter = BluetoothAdapter.getDefaultAdapter();       // get Bluetooth adapter
+*/
         startListening();
         messageArrayList = new ArrayList<String>();
         dbHelper = Database.getInstance(getApplicationContext());
@@ -138,13 +169,48 @@ public class SlaveService extends Service {
 
     }
 
-    private void sendMessage(String message, String number) {
+    private void assembleBTMessage(String message) {
+        boolean test = false;
+        if (message.contains("[END121212]")) {
+            messageArrayList.add(message);
+//            fullMsg.append(message);
+//            Log.d(TAG, "assembleBTMessage: Slut: " + message);
+            test = true;
+//            sortMessage(messageArrayList);
+        } else {
+            messageArrayList.add(message);
+//            Log.d(TAG, "assembleBTMessage: EJ Slut: " + message);
 
-        mConnectedThread.write("(SNDSMS)" + "(|" + number+"|)" + message);
+//            fullMsg.append(message);
+        }
+
+        if (test) {
+            int i = 0;
+            do {
+                message = message + messageArrayList.get(i);
+                i++;
+            } while (messageArrayList.size() != i);
+
+            sortMessage(message);
+
+            messageArrayList.clear();
+
+        }
+
+    }
+
+    private void sendMessage(String message, String number, String id, String action) {
+
+        if (action == "MARK_READ") {
+            mConnectedThread.write("(MRKRED)" + "(" + number + "NUMBER)" + "(" + id + "ID)" + "(" + message + "MESSAGE)");
+
+        } else if (action == "SMS") {
+            mConnectedThread.write("(SNDSMS)" + "(" + number + "NUMBER)" + "(" + message + "MESSAGE)");
+
+//            mConnectedThread.write("(SNDSMS)" + "(" + number + "NUMBER)" + "(" + id + "ID)" + "(" + message + "MESSAGE)");
 //        sendMessage("[SMS]" + "(|" + number+"|)" + message);
 
 //        Cursor cursor = dbHelper.getOneSMS(oldMessage, number);
-
 
 
 //        if (cursor != null && cursor.moveToFirst()) {
@@ -196,6 +262,7 @@ public class SlaveService extends Service {
 //            Log.d(TAG, "sendMessage: No sms");
 //        }
 //        mConnectedThread.closeStreams();
+        }
 
     }
 
@@ -205,7 +272,7 @@ public class SlaveService extends Service {
 
         doDestroy = true;
 
-        Log.d(TAG, "onDestroy: " + btAdapter.getScanMode());
+//        Log.d(TAG, "onDestroy: " + btAdapter.getScanMode());
 //        bluetoothIn.removeCallbacksAndMessages(null);
         stopThread = true;
         if (mSecureAcceptThread != null) {
@@ -214,6 +281,7 @@ public class SlaveService extends Service {
         }
         if (mConnectedThread != null) {
             mConnectedThread.closeStreams();
+            mConnectedThread = null;
         }
 
 
@@ -222,6 +290,8 @@ public class SlaveService extends Service {
 //            mConnectingThread.closeSocket();
 //        }
         Log.d("SERVICE", "onDestroy");
+
+        stopSelf();
     }
 
     private void sendResult(int number) {
@@ -241,44 +311,100 @@ public class SlaveService extends Service {
     }
 
     private void sortMessage(String message) {
-        List<String> list = new ArrayList<>(Arrays.asList(message.split("\\[SMS\\]")));
-        list.remove(0);
+        Bitmap bitmap = null;
+//        for (int i = 0; i < messageList.size(); i++) {
+////            Log.d("string is",(String) messageList.get(i));
+//            message = message + messageList.get(i);
+//        }
+//        Log.d(TAG, "sortMessage: " + messageList);
 
-        for (int j = 0; j < (list.size()); j++) {
-            Log.d(TAG, "handleMessage: Size" + list.size());
-            if (j != (list.size() - 1)) {
-
-                message = list.get(j).substring(0, list.get(j).length() - 2);
-                String number = message.substring(2, message.indexOf("|)"));
-//                Log.d(TAG, "sortMessage: Number: " + number);
-                message = message.replaceFirst("\\(\\|(.*)\\|\\)", "");
-                String name = message.substring(1, message.indexOf(")"));
-//                Log.d(TAG, "sortMessage: Name: " + name);
-                message = message.replaceFirst("\\(.*\\)\\(", "\\(");
-                String time = message.substring(1, message.indexOf(")"));
-//                Log.d(TAG, "sortMessage: time: " + time);
-                message = message.replaceFirst("\\(.*\\)", "");
-//                Log.d(TAG, "sortMessage: Message: " + message);
-                addToDb(name, number, message, time);
-
-            } else {
-
-                message = list.get(j).substring(0, list.get(j).length() - 1);
-                String number = message.substring(2, message.indexOf("|)"));
-//                Log.d(TAG, "sortMessage: Number: " + number);
-                message = message.replaceFirst("\\(\\|(.*)\\|\\)", "");
-                String name = message.substring(1, message.indexOf(")"));
-//                Log.d(TAG, "sortMessage: Name: " + name);
-                message = message.replaceFirst("\\(.*\\)\\(", "\\(");
-                String time = message.substring(1, message.indexOf(")"));
-//                Log.d(TAG, "sortMessage: time: " + time);
-                message = message.replaceFirst("\\(.*\\)", "");
-//                Log.d(TAG, "sortMessage: Message: " + message);
-                addToDb(name, number, message, time);
-
-            }
+//        String message = fullMsg.toString();
+//        Log.d(TAG, "sortMessage: full message: " + message);
+        List<String> sms = new ArrayList<>(Arrays.asList(message.split("\\[SMS\\]")));
+        List<String> img = new ArrayList<>(Arrays.asList(message.split("\\[IMG\\]")));
+        sms.remove(0);
+        img.remove(0);
+        if (sms.size() > 0) {
+            dbHelper.prepareSms();
         }
-        mResultReceiver.send(1,null);
+        if (img.size() > 0) {
+            String image = img.get(0);
+            image = image.replaceFirst("\\[END121212\\]", "");
+
+            Log.d(TAG, "sortMessage: Bild medskickad" + image.length());
+
+            try {
+//                String tmp = img.get(0);
+                byte[] encodeByte = Base64.decode(image, Base64.DEFAULT);
+                bitmap = BitmapFactory.decodeByteArray(encodeByte, 0, encodeByte.length);
+            } catch (Exception e) {
+                e.getMessage();
+            }
+
+        }
+        for (int j = 0; j < (sms.size()); j++) {
+//            Log.d(TAG, "handleMessage: Size" + sms.size());
+            if (j != (sms.size() - 1)) {
+                message = sms.get(j).substring(0, sms.get(j).length() - 2);
+            } else {
+                message = sms.get(j).substring(0, sms.get(j).length() - 1);
+            }
+            String number = message.substring(2, message.indexOf("|)"));
+//            Log.d(TAG, "sortMessage: Number: " + number);
+            message = message.replaceFirst("\\(\\|(.*)\\|\\)", "");
+
+
+            String name = message.substring(1, message.indexOf("user)"));
+            //                Log.d(TAG, "sortMessage: Name: " + name);
+            message = message.replaceFirst("\\(.*user\\)", "");
+
+            String time = message.substring(1, message.indexOf("date)"));
+            message = message.replaceFirst("\\(.*date\\)", "");
+
+            String id = message.substring(1, message.indexOf("id)"));
+            message = message.replaceFirst("\\(.*id\\)", "");
+
+
+//            Log.d(TAG, "sortMessage: id: " + id);
+
+
+            message = message.replaceFirst("\\(.*\\)", "");
+//                Log.d(TAG, "sortMessage: Message: " + message);
+            addToDb(name, number, message, time);
+
+
+//                String number = message.substring(2, message.indexOf("|)"));
+////                Log.d(TAG, "sortMessage: Number: " + number);
+//                message = message.replaceFirst("\\(\\|(.*)\\|\\)", "");
+//                String name = message.substring(1, message.indexOf(")"));
+////                Log.d(TAG, "sortMessage: Name: " + name);
+//                message = message.replaceFirst("\\(.*\\)\\(", "\\(");
+//                String time = message.substring(1, message.indexOf(")"));
+////                Log.d(TAG, "sortMessage: time: " + time);
+//                message = message.replaceFirst("\\(.*\\)", "");
+////                Log.d(TAG, "sortMessage: Message: " + message);
+//                addToDb(name, number, message, time);
+
+
+        }
+        Intent intent = new Intent(getApplicationContext(), SmsActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        intent.setAction("REFRESH");
+
+        if (bitmap != null){
+            ByteArrayOutputStream _bs = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.PNG, 50, _bs);
+            intent.putExtra("byteArray", _bs.toByteArray());
+        }
+
+
+        img.clear();
+        sms.clear();
+        startActivity(intent);
+        dbHelper.deteteSms();
+
+        // Lägg till intent till slaveactivity igen.
+        // Kolla om appen är igång annars starta.
     }
 
     private void startListening() {
@@ -422,14 +548,13 @@ public class SlaveService extends Service {
                     String readMessage = new String(buffer, 0, bytes);
                     Log.d("DEBUG BT PART", "CONNECTED THREAD " + readMessage);
                     // Send the obtained bytes to the UI Activity via handler
-                    bluetoothIn.obtainMessage(handlerState, bytes, -1, readMessage).sendToTarget();
+                    assembleBTMessage(readMessage);
+//                    bluetoothIn.obtainMessage(handlerState, bytes, -1, readMessage).sendToTarget();
                 } catch (IOException e) {
                     Log.d("DEBUG BT", e.toString());
                     Log.d("BT SERVICE", "UNABLE TO READ/WRITE, STOPPING SERVICE");
                     if (!doDestroy) {
                         startListening();
-                    } else {
-                        stopSelf();
                     }
                     break;
                 }

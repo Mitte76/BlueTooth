@@ -20,12 +20,24 @@
               android:orientation="vertical" >
     <include layout="@layout/toolbar">
     </include>
+    <ImageView
+        android:id="@+id/imageView"
+
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
     <ListView
         android:id="@+id/in"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_weight="1"
+        android:layout_height="0dp"
         android:stackFromBottom="true"
         android:transcriptMode="alwaysScroll" />
+    <android.support.v7.widget.RecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        >
+
+
+    </android.support.v7.widget.RecyclerView>
 
 </LinearLayout>

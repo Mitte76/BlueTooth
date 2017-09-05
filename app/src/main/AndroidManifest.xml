@@ -43,7 +43,7 @@
             android:screenOrientation="portrait"
             android:launchMode="singleTask"
             />
-        <activity android:name=".SlaveActivity"
+        <activity android:name=".SmsActivity"
             android:screenOrientation="portrait"
             android:launchMode="singleTask"
             />
@@ -52,6 +52,7 @@
             android:showOnLockScreen="true"
             />
         <service android:name=".SlaveService" />
+        <service android:name=".listeners.NLService" />
     </application>
 
 </manifest>

@@ -9,9 +9,13 @@
         android:title="@string/start_service"/>
     <item
         android:id="@+id/stop_service"
-        android:icon="@drawable/ic_action_device_access_bluetooth_searching"
         app:showAsAction="never"
         android:title="@string/stop_service"/>
+
+    <item
+        android:id="@+id/undelete"
+        app:showAsAction="never"
+        android:title="@string/undelete_sms"/>
 
     <!--<item-->
         <!--android:id="@+id/insecure_connect_scan"-->

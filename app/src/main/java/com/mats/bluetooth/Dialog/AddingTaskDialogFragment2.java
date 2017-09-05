@@ -17,61 +17,34 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mats.bluetooth.R;
-//import com.shopper.android.fragments.Adapters.SwipeCursorAdapter;
-//import com.shopper.android.fragments.DbHelper.Database;
 
 
 public class AddingTaskDialogFragment2 extends DialogFragment {
     public interface ReplyMessageListener {
         void onReply(String number, String text);
-
+        void onMarkRead(String id, String number, String message);
     }
 
     private final String TAG = AddingTaskDialogFragment2.class.getSimpleName();
-    //    private ListView listView;
-//    private SwipeCursorAdapter listAdapter;
-//    private Database dbHelper;
-    private String number, user, message;
+    private String number, user, message, id;
 
-    private String title = "test";
-    private String hint;
-    private String searchText = "";
-    private boolean itemAdded = false;
     private EditText editTextMessage;
-    private TextView inMessage, inNumber;
-    private Button sendButton;
+    private TextView inMessage;
+    private Button sendButton/*, markReadButton*/;
     private ReplyMessageListener mReplyMessageListener;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
+        id = getArguments().getString("id");
         user = getArguments().getString("user");
         number = getArguments().getString("number");
         message = getArguments().getString("message");
         setStyle(DialogFragment.STYLE_NORMAL,android.R.style.Theme_Holo_Light_NoActionBar);
 //        setStyle(DialogFragment.STYLE_NORMAL,android.R.style.Theme_Translucent_NoTitleBar_Fullscreen);
         Log.d(TAG, "onCreate: ");
-//        try {
-//            mReplyMessageListener = (ReplyMessageListener) getTargetFragment();
-////            Log.d(TAG, "onCreate: test");
-//        } catch (ClassCastException e) {
-//            throw new ClassCastException(getTargetFragment().toString() + " must implement ReplyMessageListener");
-//        }
-//        switch (message){
-//            case R.id.list_fab:
-//                title = getString(R.string.dialog_add_list);
-//                hint = getString(R.string.dialog_add_list_hint);
-//                break;
-//            case R.id.item_fab:
-//                title = getString( R.string.dialog_add_item);
-//                hint = getString( R.string.dialog_add_item_hint);
-//                break;
-//        }
-
-
     }
-//    private ReplyMessageListener mReplyMessageListener;
 
 
     @Override
@@ -94,8 +67,9 @@ public class AddingTaskDialogFragment2 extends DialogFragment {
         getDialog().getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
         View v = inflater.inflate(R.layout.dialog_task2, container, false);
         inMessage = v.findViewById(R.id.inMessage);
-        inNumber = v.findViewById(R.id.inNumber);
+        TextView inNumber = v.findViewById(R.id.inNumber);
         sendButton = v.findViewById(R.id.dialogSendBtn);
+//        markReadButton = v.findViewById(R.id.dialogMarkRead);
         editTextMessage = v.findViewById(R.id.dialogSendMessage);
 
         inMessage.setText(message);
@@ -108,6 +82,14 @@ public class AddingTaskDialogFragment2 extends DialogFragment {
                 dismiss();
             }
         });
+
+//        markReadButton.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                mReplyMessageListener.onMarkRead(id, number, message);
+//                dismiss();
+//            }
+//        });
                 Log.d(TAG, "onCreateView: ");
 
         return v;
@@ -246,12 +228,6 @@ public class AddingTaskDialogFragment2 extends DialogFragment {
 //        Toast.makeText(getContext(), item + " added to list", Toast.LENGTH_SHORT).show();
 //
 //    }
-
-    public String makePerfect(String inString) {
-
-
-        return inString.substring(0, 1).toUpperCase() + inString.substring(1).toLowerCase();
-    }
 
 
 }
