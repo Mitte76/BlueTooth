@@ -35,7 +35,7 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
 
     private static final String TAG = "MasterActivity";
     private Toolbar toolbar;
-    private Button mOffButton, mOnButton, mSlaveOffButton, mSlaveOnButton;
+    private Button mOffButton, mOnButton;
     private TextView infoText;
     private MasterService mService;
     private boolean mBound = false;
@@ -83,7 +83,6 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
         }
 
 
-
         if (savedInstanceState == null) {
 
         }
@@ -103,12 +102,9 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
             // Update the UI here...
 
             Log.d(TAG, "onReceiveResult: Det funkar fan!" + resultCode);
-            
+
         }
     };
-
-
-
 
 
     @Override
@@ -150,7 +146,7 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
 //            mBound = false;
 //            Log.d(TAG, "onDestroy: ");
 //        }
-        if(isMyServiceRunning()){
+        if (isMyServiceRunning()) {
             Intent i = new Intent(this, MasterService.class);
             i.setAction("UNREGISTER_RECEIVER");
             i.putExtra("ResultReceiver_ID", hashCode());
@@ -178,21 +174,51 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
-            case R.id.select_slave: {
-                // Launch the DeviceListActivity to see devices and do scan
-                Intent serverIntent = new Intent(this, DeviceListActivity.class);
-                startActivityForResult(serverIntent, SELECT_SLAVE_DEVICE);
+            case R.id.start_service: {
+                if (!mBluetoothAdapter.isEnabled()) {
+                    Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                    startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
+                } else {
+                    if (SLAVE_MAC != null && !isMyServiceRunning()) {
+                        Intent service = new Intent(getApplicationContext(), MasterService.class);
+                        service.setAction("FIRST_START");
+                        service.putExtra("ResultReceiver", mResultReceiver);
+                        service.putExtra("ResultReceiver_ID", hashCode());
+                        service.putExtra("mac_address", SLAVE_MAC);
+                        getApplicationContext().startService(service);
+                        Toast.makeText(getApplicationContext(), R.string.service_started, Toast.LENGTH_SHORT).show();
+
+                    } else {
+                        if (isMyServiceRunning()) {
+                            Toast.makeText(getApplicationContext(), R.string.service_already_running, Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(getApplicationContext(), R.string.select_bt_first, Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                }
                 return true;
             }
-            case R.id.start_service: {
-                // Ensure this device is discoverable by others
-                ensureDiscoverable();
+            case R.id.stop_service: {
+                if (isMyServiceRunning()) {
+                    getApplicationContext().stopService(new Intent(getApplicationContext(), MasterService.class));
+                    Toast.makeText(getApplicationContext(), R.string.service_stopped, Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(getApplicationContext(), R.string.service_not_running, Toast.LENGTH_SHORT).show();
+                }
                 return true;
             }
             case R.id.permission: {
                 testPermission(PERMISSIONS);
                 return true;
             }
+            case R.id.select_slave: {
+                // Launch the DeviceListActivity to see devices and do scan
+                Intent serverIntent = new Intent(this, DeviceListActivity.class);
+                startActivityForResult(serverIntent, SELECT_SLAVE_DEVICE);
+                return true;
+            }
+
+
         }
         return false;
     }
@@ -209,11 +235,9 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
     private void init() {
         mOffButton = (Button) findViewById(R.id.button_off);
         mOnButton = (Button) findViewById(R.id.button_on);
-        mSlaveOnButton = (Button) findViewById(R.id.button_s_on);
-        mSlaveOffButton = (Button) findViewById(R.id.button_s_off);
         infoText = (TextView) findViewById(R.id.info);
 
-        if(isMyServiceRunning()){
+        if (isMyServiceRunning()) {
 
             Intent service = new Intent(getApplicationContext(), MasterService.class);
             service.setAction("REGISTER_RECEIVER");
@@ -244,7 +268,7 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
                         Toast.makeText(getApplicationContext(), R.string.service_started, Toast.LENGTH_SHORT).show();
 
                     } else {
-                        if (isMyServiceRunning()){
+                        if (isMyServiceRunning()) {
                             Toast.makeText(getApplicationContext(), R.string.service_already_running, Toast.LENGTH_SHORT).show();
                         } else {
                             Toast.makeText(getApplicationContext(), R.string.select_bt_first, Toast.LENGTH_SHORT).show();
@@ -257,26 +281,19 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
         mOffButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
+                if (isMyServiceRunning()) {
+                    getApplicationContext().stopService(new Intent(getApplicationContext(), MasterService.class));
+                    Toast.makeText(getApplicationContext(), R.string.service_stopped, Toast.LENGTH_SHORT).show();
 
-                getApplicationContext().stopService(new Intent(getApplicationContext(), MasterService.class));
-                infoText.setText(R.string.service_stopped);
+                } else {
+                    Toast.makeText(getApplicationContext(), R.string.service_not_running, Toast.LENGTH_SHORT).show();
 
-            }
-        });
-
-        mSlaveOnButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                // Send a message using content of the edit text widget
-
-                if (mService.isRunning){
-                    Log.d(TAG, "onClick: Running");
-                }else{
-                    Log.d(TAG, "onClick: NOT Running");
                 }
 
-
             }
         });
+
+
 
 
     }
@@ -284,20 +301,7 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
 
-            case REQUEST_ENABLE_BT:
-                // When the request to enable Bluetooth returns
-                if (resultCode == Activity.RESULT_OK) {
-                    // Bluetooth is now enabled, so set up a chat session
-//                    infoText.setText(R.string.select_bt_msg);
-//                    init();
-                } else {
-                    // User did not enable Bluetooth or an error occurred
-//                    Log.d(TAG, "BT not enabled");
-                    Toast.makeText(this, R.string.bt_not_enabled,
-                            Toast.LENGTH_SHORT).show();
-                    this.finish();
-                }
-                break;
+
             case AppSettingsDialog.DEFAULT_SETTINGS_REQ_CODE:
                 if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED) {
                     Toast.makeText(this, R.string.returned_from_app_settings_to_activity, Toast.LENGTH_SHORT)

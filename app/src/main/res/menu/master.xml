@@ -7,13 +7,15 @@
         android:icon="@drawable/ic_action_device_access_bluetooth_searching"
         app:showAsAction="ifRoom"
         android:title="@string/select_slave_device"/>
-
-
     <item
         android:id="@+id/start_service"
         app:showAsAction="never"
         android:title="@string/start_service"/>
 
+    <item
+        android:id="@+id/stop_service"
+        app:showAsAction="never"
+        android:title="@string/stop_service"/>
     <item
         android:id="@+id/permission"
         app:showAsAction="never"

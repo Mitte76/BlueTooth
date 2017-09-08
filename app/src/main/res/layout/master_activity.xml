@@ -51,27 +51,4 @@
 
     </LinearLayout>
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="bottom|center_horizontal"
-        android:orientation="horizontal">
-
-
-        <Button
-            android:id="@+id/button_s_on"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Slave on"
-            style="?attr/buttonBarButtonStyle"/>
-
-        <Button
-            android:id="@+id/button_s_off"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Slave off"
-            style="?attr/buttonBarButtonStyle"/>
-
-    </LinearLayout>
-
 </LinearLayout>

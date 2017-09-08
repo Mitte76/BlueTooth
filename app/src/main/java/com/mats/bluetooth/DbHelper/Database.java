@@ -160,7 +160,7 @@ public class Database extends SQLiteOpenHelper {
         return c;
     }
 
-    public void deteteSms(String id) {
+    public void deleteSms(String id) {
         SQLiteDatabase db = this.getWritableDatabase();
 
         db.delete(SMS_TABLE, KEY_ID + " = " + id, null);
@@ -168,9 +168,9 @@ public class Database extends SQLiteOpenHelper {
 //        return db.insert(SMS_TABLE, null, values);
     }
 
-    public void deteteSms() {
+    public void deleteSms() {
         SQLiteDatabase db = this.getWritableDatabase();
-
+        Log.d(TAG, "deleteSms: Deleting");
         db.delete(SMS_TABLE, KEY_DELETED_EXTERNAL + " = 1" , null);
 
 //        return db.insert(SMS_TABLE, null, values);

@@ -176,7 +176,10 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ItemViewHolder> {
             messageList.remove(position);
             notifyItemRemoved(position);
         }
-        dbHelper.markSmsDeleted(idIn);
+        if(idList.contains(idIn)){
+            idList.remove(position);
+            dbHelper.markSmsDeleted(idIn);
+        }
 
     }
 

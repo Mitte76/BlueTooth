@@ -38,7 +38,7 @@ public class MasterService extends Service implements Listener {
 
 //    private final IBinder mBinder = new LocalBinder();
 
-
+    private Constants mConstants;
     final int handlerState = 0;                        //used to identify handler message
     Handler bluetoothIn;
     private BluetoothAdapter btAdapter = null;
@@ -67,6 +67,7 @@ public class MasterService extends Service implements Listener {
         super.onCreate();
         Log.d("BT SERVICE", "SERVICE CREATED");
         stopThread = false;
+        mConstants = new Constants();
     }
 
 
@@ -208,12 +209,12 @@ public class MasterService extends Service implements Listener {
         if (inMessage.substring(0, 8).equals("(GETCON)")) {
 
         } else if (inMessage.substring(0, 8).equals("(SNDSMS)")) {
-            inMessage = inMessage.replaceAll("\\(SNDSMS\\)", "");
+            inMessage = inMessage.replaceAll("\\(SNDSMS\\)", "(");
 
-            String number = inMessage.substring(inMessage.indexOf("(") + 1, inMessage.indexOf("NUMBER)"));
-            String message = inMessage.substring(inMessage.indexOf("(") + 1, inMessage.indexOf("MESSAGE)"));
+            String number = inMessage.substring(inMessage.indexOf("(NUMBER") + 7, inMessage.indexOf("NUMBER)"));
+            String message = inMessage.substring(inMessage.indexOf("(MESSAGE") + 8, inMessage.indexOf("MESSAGE)"));
 
-//            message = message.replaceFirst("\\(.*NUMBER\\)", "");
+            message = message.replaceFirst("\\(NUMBER.*NUMBER\\)", "");
 //            message = message.replaceAll("\\(SNDSMS\\)", "");
             sendSMS(message, number);
         }
@@ -368,22 +369,28 @@ public class MasterService extends Service implements Listener {
         bm.compress(Bitmap.CompressFormat.PNG, 100, baos);
         byte[] b = baos.toByteArray();
         String temp = Base64.encodeToString(b, Base64.DEFAULT);
-
-        temp = "[IMG]" + temp;
+//        Log.d(TAG, "sendMessage: tempSize = " + temp.length());
+        temp = Constants.IMG + temp + Constants.DELIMITER_STRING;
 //        temp = "[IMG]" + temp;
 
         if (cursor != null && cursor.moveToFirst()) { // must check the result to prevent exception
             int i = 0;
 //            Log.d(TAG, "sendMessage: " + cursor.getString(0) + " " + cursor.getString(4) + " " + cursor.getString(5));
             ArrayList<String> mArrayList = new ArrayList<String>();
-            Log.d(TAG, "sendMessage: " + Arrays.toString(cursor.getColumnNames()));
+//            Log.d(TAG, "sendMessage: " + Arrays.toString(cursor.getColumnNames()));
+            mConnectedThread.write(mConstants.START_STRING);
+
             do {
                 if (cursor.getInt(7) == 0) {
                     String user1 = getContactName(cursor.getString(2));
                     String user = getContactName(user1);
-                    mArrayList.add("[SMS]" + "(|" + cursor.getString(2) + "|)" + "(" + user + "user)"
-                            + "(" + cursor.getString(4) + "date)"
-                            + "(" + cursor.getString(0) + "id)" + cursor.getString(12));
+                    mArrayList.add(Constants.SMS + "(NUMBER" + cursor.getString(2) + "NUMBER)" + "(USER" + user + "USER)"
+                            + "(DATE" + cursor.getString(4) + "DATE)"
+                            + "(ID" + cursor.getString(0) + "ID)" + "(MESSAGE" + cursor.getString(12) + "MESSAGE)");
+                    mConnectedThread.write("[SMS]" + "(NUMBER" + cursor.getString(2) + "NUMBER)" + "(USER" + user + "USER)"
+                            + "(DATE" + cursor.getString(4) + "DATE)"
+                            + "(ID" + cursor.getString(0) + "ID)" + "(MESSAGE" + cursor.getString(12) + "MESSAGE)" + mConstants.DELIMITER_STRING);
+
                 } else {
                     Log.d(TAG, "sendMessage: Redan läst: " + cursor.getString(7));
                 }
@@ -393,15 +400,20 @@ public class MasterService extends Service implements Listener {
 
             } while /*(i < 10)*/(cursor.moveToNext());
             cursor.close();
-
+            mConnectedThread.write(temp);
             if (mArrayList.size() > 0) {
                 // Get the message bytes and tell the BluetoothService to write
 //                            byte[] send = msgData.getBytes();
 
-                String send = mArrayList.toString();
-                send = send + temp + "[END121212]";
+
+
+
+  /*              String send = mArrayList.toString();
+                send = send + "[END121212]";
                 mConnectedThread.write(send);
-                Log.d(TAG, "sendMessage: Message sent" + temp.length());
+                Log.d(TAG, "sendMessage: Message sent" + send.length());
+*/
+
 
 //                mConnectedThread.write(send);
 
@@ -415,7 +427,7 @@ public class MasterService extends Service implements Listener {
             Log.d(TAG, "sendMessage: No sms");
         }
 //        mConnectedThread.closeStreams();
-        cursor.close();
+        mConnectedThread.write(mConstants.STOP_STRING);
 
     }
 
@@ -435,7 +447,7 @@ public class MasterService extends Service implements Listener {
         if (cursor != null) {
             if (cursor.moveToFirst()) {
                 contactName = cursor.getString(0);
-                Log.d(TAG, "getContactName: " + contactName);
+//                Log.d(TAG, "getContactName: " + contactName);
             }
             cursor.close();
 //                    Log.d(TAG, "getContactName:" + contactName + ".");
@@ -454,42 +466,6 @@ public class MasterService extends Service implements Listener {
 //        }
         return out;
     }
-
-
-//    public synchronized void connected(BluetoothSocket socket, BluetoothDevice
-//            device, final String socketType) {
-////        Log.d(TAG, "connected, Socket Type:" + socketType);
-//
-//        // Cancel the thread that completed the connection
-//
-//        Log.d(TAG, "connected: " + btAdapter.getScanMode());
-//        if (mConnectingThread != null) {
-//            mConnectingThread.closeSocket();
-//            mConnectingThread = null;
-//        }
-//
-//        // Cancel any thread currently running a connection
-//        if (mConnectedThread != null) {
-//            mConnectedThread.closeStreams();
-//            mConnectedThread = null;
-//        }
-//
-//
-//
-//
-//        // Cancel the accept thread because we only want to connect to one device
-////        if (mSecureAcceptThread != null) {
-////            mSecureAcceptThread.cancel();
-////            mSecureAcceptThread = null;
-////        }
-//
-//
-//        // Start the thread to manage the connection and perform transmissions
-//        mConnectedThread = new ConnectedThread(socket);
-//        mConnectedThread.start();
-//
-//
-//    }
 
 
     private void sendSMS(String message, String number) {
@@ -513,18 +489,6 @@ public class MasterService extends Service implements Listener {
             mConnectingThread = null;
         }
 
-//        if (!isHandlerRunning) {
-//            mRetryHandler = new Handler(Looper.getMainLooper());
-//            isHandlerRunning = true;
-//            Log.d(TAG, "doRetry: destroying old handler");
-//        } else {
-//            mRetryHandler.removeCallbacksAndMessages(null);
-//            Log.d(TAG, "doRetry: making new handler");
-//            isHandlerRunning = false;
-//        }
-//        if (mConnectedThread != null || mConnectingThread != null) {
-//            timesRetried = 0;
-//        } else {
         isHandlerRunning = true;
         if (timesRetried <= 3 && !doDestroy) {
             mRetryHandler.postDelayed(new Runnable() {
@@ -662,7 +626,7 @@ public class MasterService extends Service implements Listener {
 
         public void run() {
             Log.d("DEBUG BT", "IN CONNECTED THREAD RUN");
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[Constants.BUFFERSIZE];
             int bytes;
             timesRetried = 0;
 
@@ -693,6 +657,7 @@ public class MasterService extends Service implements Listener {
         public void write(String input) {
             byte[] msgBuffer = input.getBytes();           //converts entered String into bytes
             try {
+                Log.d(TAG, "write: " + msgBuffer.length);
                 mmOutStream.write(msgBuffer);                //write bytes over BT connection via outstream
             } catch (IOException e) {
                 //if you cannot write, close the application
@@ -716,81 +681,6 @@ public class MasterService extends Service implements Listener {
             }
         }
     }
-//
-//    private class AcceptThread extends Thread {
-//        // The local server socket
-//        private final BluetoothServerSocket mmServerSocket;
-//        private String mSocketType;
-//
-//        public AcceptThread(boolean secure) {
-//            BluetoothServerSocket tmp = null;
-//            mSocketType = secure ? "Secure" : "Insecure";
-//
-//            // Create a new listening server socket
-//            try {
-//                tmp = btAdapter.listenUsingRfcommWithServiceRecord("MasterService", BTMODULEUUID);
-//            } catch (IOException e) {
-//                Log.e(TAG, "Socket Type: " + mSocketType + "listen() failed", e);
-//            }
-//            mmServerSocket = tmp;
-//            mState = STATE_LISTEN;
-//
-//        }
-//
-//        public void run() {
-////            Log.d(TAG, "Socket Type: " + mSocketType +
-////                    "BEGIN mAcceptThread" + this);
-//            setName("AcceptThread" + mSocketType);
-//
-//            BluetoothSocket socket = null;
-//
-//            // Listen to the server socket if we're not connected
-//            while (mState != STATE_CONNECTED) {
-//                try {
-//                    // This is a blocking call and will only return on a
-//                    // successful connection or an exception
-//                    socket = mmServerSocket.accept();
-//                } catch (IOException e) {
-//                    Log.e(TAG, "Socket Type: " + mSocketType + "accept() failed", e);
-//                    break;
-//                }
-//
-//                // If a connection was accepted
-//                if (socket != null) {
-//                    synchronized (MasterService.this) {
-//                        switch (mState) {
-//                            case STATE_LISTEN:
-//                            case STATE_CONNECTING:
-//                                // Situation normal. Start the connected thread.
-//                                connected(socket, socket.getRemoteDevice(),
-//                                        mSocketType);
-//                                break;
-//                            case STATE_NONE:
-//                            case STATE_CONNECTED:
-//                                // Either not ready or already connected. Terminate new socket.
-//                                try {
-//                                    socket.close();
-//                                } catch (IOException e) {
-//                                    Log.e(TAG, "Could not close unwanted socket", e);
-//                                }
-//                                break;
-//                        }
-//                    }
-//                }
-//            }
-////            Log.i(TAG, "END mAcceptThread, socket Type: " + mSocketType);
-//
-//        }
-//
-//        public void cancel() {
-////            Log.d(TAG, "Socket Type" + mSocketType + "cancel " + this);
-//            try {
-//                mmServerSocket.close();
-//            } catch (IOException e) {
-//                Log.e(TAG, "Socket Type" + mSocketType + "close() of server failed", e);
-//            }
-//        }
-//    }
 
 
 }
