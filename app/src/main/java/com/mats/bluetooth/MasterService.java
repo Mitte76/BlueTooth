@@ -370,7 +370,7 @@ public class MasterService extends Service implements Listener {
         byte[] b = baos.toByteArray();
         String temp = Base64.encodeToString(b, Base64.DEFAULT);
 //        Log.d(TAG, "sendMessage: tempSize = " + temp.length());
-        temp = Constants.IMG + temp + Constants.DELIMITER_STRING;
+        temp = Constants.IMG + temp + Constants.ITEM_STOP + Constants.DELIMITER_STRING;
 //        temp = "[IMG]" + temp;
 
         if (cursor != null && cursor.moveToFirst()) { // must check the result to prevent exception
@@ -378,7 +378,7 @@ public class MasterService extends Service implements Listener {
 //            Log.d(TAG, "sendMessage: " + cursor.getString(0) + " " + cursor.getString(4) + " " + cursor.getString(5));
             ArrayList<String> mArrayList = new ArrayList<String>();
 //            Log.d(TAG, "sendMessage: " + Arrays.toString(cursor.getColumnNames()));
-            mConnectedThread.write(mConstants.START_STRING);
+            mConnectedThread.write(Constants.START_STRING);
 
             do {
                 if (cursor.getInt(7) == 0) {
@@ -389,7 +389,8 @@ public class MasterService extends Service implements Listener {
                             + "(ID" + cursor.getString(0) + "ID)" + "(MESSAGE" + cursor.getString(12) + "MESSAGE)");
                     mConnectedThread.write("[SMS]" + "(NUMBER" + cursor.getString(2) + "NUMBER)" + "(USER" + user + "USER)"
                             + "(DATE" + cursor.getString(4) + "DATE)"
-                            + "(ID" + cursor.getString(0) + "ID)" + "(MESSAGE" + cursor.getString(12) + "MESSAGE)" + mConstants.DELIMITER_STRING);
+                            + "(ID" + cursor.getString(0) + "ID)" + "(MESSAGE" + cursor.getString(12) + "MESSAGE)" + Constants.ITEM_STOP
+                            + Constants.DELIMITER_STRING);
 
                 } else {
                     Log.d(TAG, "sendMessage: Redan läst: " + cursor.getString(7));
@@ -427,7 +428,7 @@ public class MasterService extends Service implements Listener {
             Log.d(TAG, "sendMessage: No sms");
         }
 //        mConnectedThread.closeStreams();
-        mConnectedThread.write(mConstants.STOP_STRING);
+        mConnectedThread.write(Constants.STOP_STRING);
 
     }
 
