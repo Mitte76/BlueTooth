@@ -25,6 +25,7 @@ public class Database extends SQLiteOpenHelper {
     private static final String KEY_READ = "read";
     public static final String KEY_REMOTE_ID = "remote_id";
     public static final String KEY_TIME = "time";
+    public static final String KEY_IMAGE = "image";
     public static final String KEY_DELETED_LOCAL = "deleted_local";
     public static final String KEY_DELETED_EXTERNAL = "deleted_external";
 
@@ -35,7 +36,8 @@ public class Database extends SQLiteOpenHelper {
             + KEY_ID + " INTEGER PRIMARY KEY," + KEY_NUMBER + " TEXT,"
             + KEY_NAME + " TEXT," + KEY_MESSAGE + " TEXT," + KEY_TIME + " TEXT unique,"
             + KEY_REMOTE_ID + " TEXT unique," + KEY_READ + " TEXT, "
-            + KEY_DELETED_LOCAL + " TEXT, " + KEY_DELETED_EXTERNAL + " TEXT " + ")";
+            + KEY_DELETED_LOCAL + " TEXT, " + KEY_IMAGE + " BLOB, "
+            + KEY_DELETED_EXTERNAL + " TEXT " + ")";
 //            + KEY_NAME + " TEXT unique," + KEY_MESSAGE + " TEXT," + KEY_READ + " TEXT" + ")";
 
 

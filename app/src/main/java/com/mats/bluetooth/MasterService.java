@@ -10,13 +10,18 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.provider.ContactsContract;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.os.ResultReceiver;
 import android.telephony.SmsManager;
 import android.util.Base64;
@@ -25,12 +30,13 @@ import android.util.Log;
 import com.mats.bluetooth.listeners.SmsListener;
 import com.mats.bluetooth.listeners.SmsListener.Listener;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.UUID;
 
 
@@ -354,9 +360,42 @@ public class MasterService extends Service implements Listener {
                 public void run() {
                     sendMessage();
                 }
-            }, 1000);
+            }, 2000);
         }
     }
+
+    public byte[] getBytesFromBitmap(Bitmap bitmap) {
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream);
+        return stream.toByteArray();
+    }
+
+
+    public static Bitmap drawableToBitmap (Drawable drawable) {
+        if (drawable instanceof BitmapDrawable) {
+            return ((BitmapDrawable)drawable).getBitmap();
+        }
+
+        Bitmap bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        drawable.draw(canvas);
+
+        return bitmap;
+    }
+
+    public static InputStream bitmapToInputStream(Bitmap bitmap) {
+        int size = bitmap.getHeight() * bitmap.getRowBytes();
+        Log.d(TAG, "bitmapToInputStream: " + size);
+        ByteBuffer buffer = ByteBuffer.allocate(size);
+        bitmap.copyPixelsToBuffer(buffer);
+        return new ByteArrayInputStream(buffer.array());
+    }
+
+
+
+
+
 
 
     private void sendMessage() {
@@ -364,9 +403,44 @@ public class MasterService extends Service implements Listener {
         Cursor cursor = getContentResolver().query(Uri.parse("content://sms/inbox?simple=true"), null, "read = 0", null, null);
         Log.d(TAG, "sendMessage: ");
 
+
+
+
+//        Drawable drawable = null;
+//        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+//            drawable = ContextCompat.getDrawable(this, R.drawable.big_panda);
+//        }
+//        BitmapDrawable bitmapDrawable = ((BitmapDrawable) drawable);
+//        Bitmap bitmap = bitmapDrawable.getBitmap();
+//        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+//
+//        bitmap.compress(Bitmap.CompressFormat.JPEG, 50, stream); //use the compression format of your need
+////        InputStream is = new ByteArrayInputStream(stream.toByteArray());
+
+//        Bitmap bitmap;
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+//            bitmap = drawableToBitmap(getDrawable(R.drawable.tiger));
+//        } else {
+//            bitmap = null;
+//        }
+
+//        InputStream test = bitmapToInputStream(bitmap);
+
+
+//        String imgString = Base64.encodeToString(getBytesFromBitmap(bitmap),
+//                Base64.NO_WRAP);
+
+
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         Bitmap bm = BitmapFactory.decodeResource(getResources(), R.drawable.tiger);
-        bm.compress(Bitmap.CompressFormat.PNG, 100, baos);
+
+        int nh = (int) ( bm.getHeight() * (800.0 / bm.getWidth()) );
+        Bitmap scaled = Bitmap.createScaledBitmap(bm, 800, nh, true);
+
+
+        scaled.compress(Bitmap.CompressFormat.JPEG, 100, baos);
+
+
         byte[] b = baos.toByteArray();
         String temp = Base64.encodeToString(b, Base64.DEFAULT);
 //        Log.d(TAG, "sendMessage: tempSize = " + temp.length());
@@ -401,34 +475,36 @@ public class MasterService extends Service implements Listener {
 
             } while /*(i < 10)*/(cursor.moveToNext());
             cursor.close();
-            mConnectedThread.write(temp);
-            if (mArrayList.size() > 0) {
-                // Get the message bytes and tell the BluetoothService to write
-//                            byte[] send = msgData.getBytes();
+//            mConnectedThread.write(temp);
 
 
 
 
-  /*              String send = mArrayList.toString();
-                send = send + "[END121212]";
-                mConnectedThread.write(send);
-                Log.d(TAG, "sendMessage: Message sent" + send.length());
-*/
 
-
-//                mConnectedThread.write(send);
-
-                // Reset out string buffer to zero and clear the edit text field
-//                mConnectedThread.setLength(0);
-//                    mOutEditText.setText(mOutStringBuffer);
+//            temp = Constants.IMG + temp + Constants.ITEM_STOP + Constants.DELIMITER_STRING;
+//            if(!stopThread) {
+//                mConnectedThread.write(Constants.IMG);
+//            }
+//            if(!stopThread) {
+//                mConnectedThread.write(test);
+//            }
+//            if(!stopThread) {
+//                mConnectedThread.write(Constants.ITEM_STOP + Constants.DELIMITER_STRING);
+//            }
+            if(!stopThread) {
+                mConnectedThread.write(temp);
             }
+
 
         } else {
             // empty box, no SMS
             Log.d(TAG, "sendMessage: No sms");
         }
 //        mConnectedThread.closeStreams();
-        mConnectedThread.write(Constants.STOP_STRING);
+        if(!stopThread) {
+            mConnectedThread.write(Constants.STOP_STRING);
+        }
+
 
     }
 
@@ -489,7 +565,6 @@ public class MasterService extends Service implements Listener {
             mConnectingThread.closeSocket();
             mConnectingThread = null;
         }
-
         isHandlerRunning = true;
         if (timesRetried <= 3 && !doDestroy) {
             mRetryHandler.postDelayed(new Runnable() {
@@ -626,6 +701,7 @@ public class MasterService extends Service implements Listener {
         }
 
         public void run() {
+            stopThread = false;
             Log.d("DEBUG BT", "IN CONNECTED THREAD RUN");
             byte[] buffer = new byte[Constants.BUFFERSIZE];
             int bytes;
@@ -645,6 +721,7 @@ public class MasterService extends Service implements Listener {
 //                    isRunning2 = false;
 
                     if (!isHandlerRunning) {
+                        stopThread = true;
                         doRetry();
                     } else {
                         Log.d(TAG, "run3: not retry");
@@ -656,17 +733,39 @@ public class MasterService extends Service implements Listener {
 
         //write method
         public void write(String input) {
-            byte[] msgBuffer = input.getBytes();           //converts entered String into bytes
+
+
+            InputStream stream = new ByteArrayInputStream(input.getBytes());
+
+
+            byte[] buffer = new byte[8192];
+            int len;
             try {
-                Log.d(TAG, "write: " + msgBuffer.length);
-                mmOutStream.write(msgBuffer);                //write bytes over BT connection via outstream
+                while ((len = stream.read(buffer)) != -1) {
+                    mmOutStream.write(buffer, 0, len);
+                }
             } catch (IOException e) {
-                //if you cannot write, close the application
-                Log.d("DEBUG BT", "UNABLE TO READ/WRITE " + e.toString());
-                Log.d("BT SERVICE", "UNABLE TO READ/WRITE, STOPPING SERVICE");
-//                checkBTState();
-//                startListening();
+                e.printStackTrace();
             }
+
+
+        }
+
+        public void write(InputStream input) {
+
+            InputStream inputStream = input;
+
+            byte[] buffer = new byte[8192];
+            int len;
+            try {
+                while ((len = inputStream.read(buffer)) != -1) {
+                    mmOutStream.write(buffer, 0, len);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+
         }
 
         public void closeStreams() {

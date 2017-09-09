@@ -174,101 +174,118 @@ public class SlaveService extends Service {
 
     private void assembleBTMessage(String message) {
 
-//        Log.d(TAG, "assembleBTMessage: Kommer hit" + message);
         boolean test = false;
 
-//        Log.d(TAG, "assembleBTMessage: " + message);
-        if (message.contains(Constants.START_STRING) && message.contains(Constants.DELIMITER_STRING)) {
-            dbHelper.prepareSms();
-//            Log.d(TAG, "assembleBTMessage: " + message);
+        if (message.contains(Constants.START_STRING)) {
+            fullString = "";
+            message = message.substring(Constants.START_STRING.length(), message.length()); //Tar bort startSträng
+            Log.d(TAG, "assembleBTMessage: Innehåller startSträng");
+            if (message.contains(Constants.STOP_STRING)) {
+                Log.d(TAG, "assembleBTMessage: Innehåller stopSträng");
 
-            List<String> stuff = new ArrayList<>(Arrays.asList(message.split(Constants.DELIMITER_STRING)));
-//            Log.d(TAG, "assembleBTMessage: " + stuff.size());
-            int i = 0;
+                //Det här görs om Strängen är komplett
+                List<String> stuff = new ArrayList<>(Arrays.asList(message.split(Constants.DELIMITER_STRING)));
+
+                if (stuff.size() > 0) {
+                    int i = 0;
+                    do {
+                        sortMessage(stuff.get(i));
+                        i++;
+                    } while (stuff.size() > i);
+                }
+
+            } else if (message.contains(Constants.DELIMITER_STRING)) {
+                Log.d(TAG, "assembleBTMessage: Innehåller delimiterSträng");
+
+                //Det här görs om vissa delar finns med
+                List<String> stuff = new ArrayList<>(Arrays.asList(message.split(Constants.DELIMITER_STRING)));
+                int pkgToSend = stuff.size() - 1; // - 1 för att jag ska göra "get" på en array som börjar på 0
+
+                String lastitem = stuff.get(pkgToSend);
+                if (lastitem.substring((lastitem.length() - Constants.ITEM_STOP.length()), lastitem.length()).equals(Constants.ITEM_STOP)) {
+                    // Kolla om sista delen är komplett.
+                    Log.d(TAG, "assembleBTMessage: Verkar funkar Item Stop (IF) " + lastitem.substring((lastitem.length() - Constants.ITEM_STOP.length()), lastitem.length()));
+                } else {
+                    pkgToSend = pkgToSend - 1;
+                    //Om inte sista delen är komplett lägg in i fullstring och vänta på mer data.
+                    Log.d(TAG, "assembleBTMessage: Verkar funkar Item Stop (ELSE) " + lastitem.substring((lastitem.length() - Constants.ITEM_STOP.length()), lastitem.length()));
+                    fullString = stuff.get(stuff.size() - 1);
+                }
+
+                int i = 0;
+                do {
+                    sortMessage(stuff.get(i));
+                    i++;
+                } while (stuff.size() <= pkgToSend);
 
 
-            //Kolla om sista delen är komplett
-
-            String lastitem = stuff.get(stuff.size() - 1);
-
-            if (lastitem.substring((lastitem.length() - Constants.ITEM_STOP.length()), lastitem.length()).equals(Constants.ITEM_STOP)) {
-                Log.d(TAG, "assembleBTMessage: Verkar funkar Item Stop (IF) " + lastitem.substring((lastitem.length() - Constants.ITEM_STOP.length()), lastitem.length()));
             } else {
-                Log.d(TAG, "assembleBTMessage: Verkar funkar Item Stop (ELSE) " + lastitem.substring((lastitem.length() - Constants.ITEM_STOP.length()), lastitem.length()));
-                fullString = stuff.get(stuff.size() - 1);
-
+                //Det här görs om inga kompletta delar finns med
+                fullString = message;
             }
-//            if (Objects.equals(stuff.get(stuff.size() - 1).substring(stuff.get(stuff.size() - 1).length() - Constants.ITEM_STOP.length(), stuff.get(stuff.size() - 1).length()), Constants.ITEM_STOP));
 
 
-            do {
-
-                i++;
-            } while (stuff.size() > i);
-
-
-
-            Log.d(TAG, "assembleBTMessage: Start String");
         } else if (message.contains(Constants.STOP_STRING)) {
-//            fullString = fullString + message;
-            Log.d(TAG, "assembleBTMessage: Stop String " + fullString);
-            fullString = fullString + message.substring(0, message.indexOf(Constants.DELIMITER_STRING));
-            sortMessage(fullString);
-            fullString = "";
+            // Det här görs om meddelandet har delats upp på flera buffers och sista paketet har kommit.
+/*            if (message.length() <= 20){
+                Log.d(TAG, "assembleBTMessage: " + message);
+            } else {
+                Log.d(TAG, "assembleBTMessage: Stop String " +  message.substring(message.length() - 15 , message.length()));
 
-            dbHelper.deleteSms();
-        } else if (message.contains(Constants.DELIMITER_STRING) && !message.contains(Constants.START_STRING)) {
-            Log.d(TAG, "assembleBTMessage: Delimiter String ");
+            }*/
+            fullString = fullString + message.substring(0,message.indexOf(Constants.STOP_STRING));
 
-            fullString = fullString + message.substring(0, message.indexOf(Constants.DELIMITER_STRING));
-            sortMessage(fullString);
-            fullString = "";
-        } else {
-            Log.d(TAG, "assembleBTMessage: ELSE !!!!");
-            fullString = fullString + message;
+/*            if (fullString.length() <= 20){
+                Log.d(TAG, "assembleBTMessage: " + message);
+            } else {
+                Log.d(TAG, "assembleBTMessage: Stop String " +  fullString.substring(fullString.length() - 15 , fullString.length()));
 
-            if (fullString.substring(fullString.length() - Constants.DELIMITER_STRING.length(), fullString.length()).contains(Constants.DELIMITER_STRING)) {
-                sortMessage(fullString);
-                fullString = "";
-                Log.d(TAG, "assembleBTMessage: Built Delimiter String");
-            } else if (fullString.substring(fullString.length() - Constants.STOP_STRING.length(), fullString.length()).contains(Constants.STOP_STRING)) {
-                dbHelper.deleteSms();
-                sortMessage(fullString);
-                fullString = "";
-                Log.d(TAG, "assembleBTMessage: Empty");
-            }
-
-
-
-/*            Log.d(TAG, "assembleBTMessage: innan " + fullString.length());
-            fullString = fullString + message;
-            Log.d(TAG, "assembleBTMessage: efter " + fullString.length());
-            if (fullString.substring(fullString.length() - Constants.STOP_STRING.length(),fullString.length()).contains(Constants.STOP_STRING)){
-                sortMessage(fullString);
-                Log.d(TAG, "assembleBTMessage: post " + fullString.length());
-                dbHelper.deleteSms();
-                fullString = "";
-            } else  if (fullString.substring(fullString.length() - Constants.DELIMITER_STRING.length(),fullString.length()).contains(Constants.DELIMITER_STRING)){
-                sortMessage(fullString);
-                fullString = "";
             }*/
 
+
+
+            List<String> stuff = new ArrayList<>(Arrays.asList(fullString.split(Constants.DELIMITER_STRING)));
+
+            if (stuff.size() > 0) {
+                int i = 0;
+                do {
+                    sortMessage(stuff.get(i));
+                    i++;
+                } while (stuff.size() > i);
+            }
+            fullString = "";
+
+        } else if (fullString.contains(Constants.DELIMITER_STRING)) {
+
+
+            List<String> stuff = new ArrayList<>(Arrays.asList(fullString.split(Constants.DELIMITER_STRING)));
+            int pkgToSend = stuff.size() - 1; // - 1 för att jag ska göra "get" på array som börjar på 0
+
+            String lastItem = stuff.get(pkgToSend);
+            if (lastItem.substring((lastItem.length() - Constants.ITEM_STOP.length()), lastItem.length()).equals(Constants.ITEM_STOP)) {
+                // Kolla om sista delen är komplett.
+                Log.d(TAG, "assembleBTMessage: Verkar funkar Item Stop (IF) " + lastItem.substring((lastItem.length() - Constants.ITEM_STOP.length()), lastItem.length()));
+                fullString = "";
+            } else {
+                pkgToSend = pkgToSend - 1;
+                //Om inte sista delen är komplett lägg in i fullstring och vänta på mer data.
+                Log.d(TAG, "assembleBTMessage: Verkar funkar Item Stop (ELSE) " + lastItem.substring((lastItem.length() - Constants.ITEM_STOP.length()), lastItem.length()));
+                fullString = stuff.get(stuff.size() - 1);
+            }
+
+            int i = 0;
+            do {
+                sortMessage(stuff.get(i));
+                i++;
+            } while (stuff.size() <= pkgToSend);
+
+            Log.d(TAG, "assembleBTMessage: Delimiter String ");
+
+        } else {
+            fullString = fullString + message;
+            Log.d(TAG, "assembleBTMessage: ELSE !!!! Meddelande med bara rå data ");
         }
 
-
-//        if (test) {
-//            int i = 0;
-//            do {
-//                message = message + messageArrayList.get(i);
-//                i++;
-//            } while (messageArrayList.size() != i);
-//
-//            sortMessage(fullString);
-//            fullString = "";
-//
-//            messageArrayList.clear();
-//
-//        }
 
     }
 
@@ -283,8 +300,6 @@ public class SlaveService extends Service {
         }
 
     }
-
-
 
 
     @Override
@@ -334,7 +349,7 @@ public class SlaveService extends Service {
     private void sortMessage(String inMessage) {
         Bitmap bitmap = null;
         if (inMessage.substring(0, 5).contains(Constants.IMG)) {
-            String image = inMessage.substring(inMessage.indexOf(Constants.IMG) + 5, inMessage.length());
+            String image = inMessage.substring(inMessage.indexOf(Constants.IMG) + 5, inMessage.indexOf(Constants.ITEM_STOP) );
 
             Log.d(TAG, "sortMessage: Bild medskickad" + image.length());
 
@@ -346,10 +361,7 @@ public class SlaveService extends Service {
                 e.getMessage();
             }
 
-        } else {
-            Log.d(TAG, "sortMessage: substring " + inMessage.substring(0, 5) + " " + inMessage.length());
-        }
-        if (inMessage.substring(0, 5).contains(Constants.SMS)) {
+        } else if (inMessage.substring(0, 5).contains(Constants.SMS)) {
             String number = inMessage.substring(inMessage.indexOf("(NUMBER") + 7, inMessage.indexOf("NUMBER)"));
 //            Log.d(TAG, "sortMessage: Number " + number);
             String name = inMessage.substring(inMessage.indexOf("(USER") + 5, inMessage.indexOf("USER)"));
@@ -363,6 +375,8 @@ public class SlaveService extends Service {
 
             addToDb(name, number, message, date);
 
+        } else {
+            Log.d(TAG, "sortMessage: substring " + inMessage.substring(0, 5) + " " + inMessage.length());
         }
         Intent intent = new Intent(getApplicationContext(), SmsActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -496,7 +510,7 @@ public class SlaveService extends Service {
         }
     }*/
 
-
+    int totalBytes;
     public static Handler myHandler = new Handler();
     boolean test = false;
 
@@ -555,18 +569,19 @@ public class SlaveService extends Service {
                     if (byteNo != -1) {
                         //ensure DATAMAXSIZE Byte is read.
                         int byteNo2 = byteNo;
-                        int bufferSize = Constants.BUFFERSIZE - 1024;
+                        int bufferSize = Constants.BUFFERSIZE;
                         while (byteNo2 != bufferSize) {
 
 
 //                        while (byteNo2 != bufferSize) {
                             bufferSize = bufferSize - byteNo2;
-//                            Log.d(TAG, "run: Buffer " + buffer + " Byte " + byteNo + " BufferSize " + bufferSize);
+                            Log.d(TAG, "run: Buffer " + buffer + " Byte " + byteNo + " BufferSize " + bufferSize);
 
                             byteNo2 = mmInStream.read(buffer, byteNo, bufferSize);
 
 
                             byteNo = byteNo + byteNo2;
+//                            Log.d(TAG, "run: " + byteNo);
                             final int byteNo3 = byteNo;
 //                            Log.d(TAG, "run: ");
 //                            Log.d(TAG, "run: Byte2 " + byteNo2 + " Byte " + byteNo + " BufferSize " + bufferSize);
@@ -591,8 +606,9 @@ public class SlaveService extends Service {
                     String readMessage = new String(buffer, 0, byteNo);
 //                    Log.d(TAG, "run: " + readMessage);
                     assembleBTMessage(readMessage);
+                    totalBytes = totalBytes + readMessage.length();
 
-
+                    Log.d(TAG, "run: " + totalBytes);
                     //read bytes from input buffer
 
 //                    bluetoothIn.obtainMessage(handlerState, bytes, -1, readMessage).sendToTarget();
@@ -647,7 +663,7 @@ public class SlaveService extends Service {
 
             // Create a new listening server socket
 
-            Log.d(TAG, "AcceptThread: " +btAdapter.toString());
+            Log.d(TAG, "AcceptThread: " + btAdapter.toString());
 
             try {
                 tmp = btAdapter.listenUsingRfcommWithServiceRecord("SlaveService", BTMODULEUUID);

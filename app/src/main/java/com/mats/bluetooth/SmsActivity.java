@@ -10,6 +10,7 @@ import android.content.IntentFilter;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Point;
 import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -22,6 +23,7 @@ import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.support.v7.widget.helper.ItemTouchHelper;
 import android.util.Log;
+import android.view.Display;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -131,22 +133,37 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
     };
 
     private void redrawScreen(Bitmap bitmap) {
-        if (bitmap != null){
-            int nh = (int) ( bitmap.getHeight() * (100.0 / bitmap.getWidth()) );
-            Bitmap scaled = Bitmap.createScaledBitmap(bitmap, 100, nh, true);
-            mImageView.setMaxHeight(50);
-            mImageView.setMaxWidth(50);
-            mImageView.setImageBitmap(scaled);
-
-        }
         Cursor cursor = dbHelper.getSMS();
         List<String> dataList = new ArrayList<>();
+
         for(cursor.moveToFirst(); !cursor.isAfterLast(); cursor.moveToNext()) {
             // The Cursor is now set to the right position
             dataList.add(cursor.getString(3));
         }
         RVAdapter rvAdapter = new RVAdapter(cursor);
-        mRecyclerView.setAdapter(rvAdapter);
+        if (mRecyclerView == null){
+            mRecyclerView = findViewById(R.id.recyclerView);
+            mRecyclerView.setAdapter(rvAdapter);
+        } else {
+            mRecyclerView.setAdapter(rvAdapter);
+        }
+
+        if (bitmap != null){
+            Point size = new Point();
+            Display display = getWindowManager().getDefaultDisplay();
+            display.getSize(size);
+            int width = size.x / 2;
+
+            int nh = (int) ( bitmap.getHeight() * ((double) width / bitmap.getWidth()) );
+//            Bitmap scaled = Bitmap.createScaledBitmap(bitmap, 300, nh, true);
+//            mImageView.setMaxWidth(50);
+
+            mImageView.getLayoutParams().width = width;
+            mImageView.getLayoutParams().height = nh;
+            mImageView.setImageBitmap(bitmap);
+
+        }
+
         setSwipeForRecyclerView();
 
 
