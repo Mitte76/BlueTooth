@@ -22,7 +22,8 @@ public class Database extends SQLiteOpenHelper {
     public static final String KEY_NUMBER = "number";
     public static final String KEY_NAME = "name";
     public static final String KEY_MESSAGE = "message";
-    private static final String KEY_READ = "read";
+    public static final String KEY_READ = "read";
+    public static final String KEY_THREAD = "thread";
     public static final String KEY_REMOTE_ID = "remote_id";
     public static final String KEY_TIME = "time";
     public static final String KEY_IMAGE = "image";
@@ -36,8 +37,8 @@ public class Database extends SQLiteOpenHelper {
             + KEY_ID + " INTEGER PRIMARY KEY," + KEY_NUMBER + " TEXT,"
             + KEY_NAME + " TEXT," + KEY_MESSAGE + " TEXT," + KEY_TIME + " TEXT unique,"
             + KEY_REMOTE_ID + " TEXT unique," + KEY_READ + " TEXT, "
-            + KEY_DELETED_LOCAL + " TEXT, " + KEY_IMAGE + " BLOB, "
-            + KEY_DELETED_EXTERNAL + " TEXT " + ")";
+            + KEY_THREAD + " TEXT, " + KEY_DELETED_LOCAL + " TEXT, "
+            + KEY_IMAGE + " TEXT, " + KEY_DELETED_EXTERNAL + " TEXT " + ")";
 //            + KEY_NAME + " TEXT unique," + KEY_MESSAGE + " TEXT," + KEY_READ + " TEXT" + ")";
 
 
@@ -84,10 +85,25 @@ public class Database extends SQLiteOpenHelper {
 
     public Cursor getSMS() {
         SQLiteDatabase db = this.getWritableDatabase();
-        String selectQuery = "SELECT  * FROM " + SMS_TABLE + " WHERE " + KEY_DELETED_LOCAL + " != 1 ORDER BY " + KEY_TIME + " DESC";
+        String selectQuery = "SELECT  * FROM " + SMS_TABLE + " WHERE " + KEY_DELETED_LOCAL + " != 1 AND " + KEY_READ + " == 0 ORDER BY " + KEY_TIME + " DESC";
         Cursor cursor = db.rawQuery(selectQuery, null);
         cursor.moveToFirst();
+        Log.d(TAG, "getSMS: " + cursor.getCount());
         return cursor;
+    }
+    public Cursor getSMS2(String id) {
+        SQLiteDatabase db = this.getWritableDatabase();
+
+//        String selectQuery = "SELECT  * FROM " + SMS_TABLE + " WHERE " + KEY_MESSAGE
+//                + " = " + message + " AND ";
+
+//        DatabaseUtils.stringForQuery()
+
+        String select = String.format("SELECT * FROM %s WHERE %s = '%s' ORDER BY %s ASC;",
+                SMS_TABLE, KEY_THREAD, id , KEY_TIME);
+        Cursor c = db.rawQuery(select,null);
+
+        return c;
     }
     public Cursor getSMSLog() {
         SQLiteDatabase db = this.getWritableDatabase();
@@ -103,7 +119,7 @@ public class Database extends SQLiteOpenHelper {
                 SMS_TABLE, KEY_DELETED_EXTERNAL));
     }
 
-    public void addSMS(String name, String number, String message, String time) {
+    public void addSMS(String name, String number, String message, String time, String remoteId, String read, String thread) {
         Long test = null;
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -111,9 +127,48 @@ public class Database extends SQLiteOpenHelper {
         values.put(KEY_NUMBER, number);
         values.put(KEY_MESSAGE, message);
         values.put(KEY_TIME, time);
-        values.put(KEY_READ, 0);
+        values.put(KEY_READ, read);
+        values.put(KEY_THREAD, thread);
         values.put(KEY_DELETED_LOCAL, 0);
         values.put(KEY_DELETED_EXTERNAL, 0);
+        values.put(KEY_REMOTE_ID, remoteId);
+        values.put(KEY_REMOTE_ID, remoteId);
+        try {
+            test = db.insertWithOnConflict(SMS_TABLE, null, values, SQLiteDatabase.CONFLICT_ROLLBACK);
+        } catch(SQLException e) {
+
+            if (e instanceof SQLiteConstraintException){
+                Log.d(TAG, "addSMS: japp" + test);
+
+                try {
+                    db.execSQL(String.format("UPDATE %s SET %s = 0 WHERE %s = %s;",
+                            SMS_TABLE, KEY_DELETED_EXTERNAL, KEY_TIME, time));
+
+                } catch(SQLException f) {
+//                    Log.d(TAG, "addSMS 2: " + f);
+
+                }
+
+
+            }
+
+        }
+    }
+
+    public void addSMS(String name, String number, String message, String time, String remoteId, String read, String thread, String image) {
+        Long test = null;
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(KEY_NAME, name);
+        values.put(KEY_NUMBER, number);
+        values.put(KEY_MESSAGE, message);
+        values.put(KEY_TIME, time);
+        values.put(KEY_READ, read);
+        values.put(KEY_THREAD, thread);
+        values.put(KEY_DELETED_LOCAL, 0);
+        values.put(KEY_DELETED_EXTERNAL, 0);
+        values.put(KEY_REMOTE_ID, remoteId);
+        values.put(KEY_IMAGE, image);
         try {
             test = db.insertWithOnConflict(SMS_TABLE, null, values, SQLiteDatabase.CONFLICT_ROLLBACK);
         } catch(SQLException e) {
@@ -136,6 +191,8 @@ public class Database extends SQLiteOpenHelper {
         }
     }
 
+
+
     public void clearSMS() {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(SMS_TABLE,null,null);
@@ -143,7 +200,7 @@ public class Database extends SQLiteOpenHelper {
 //        return db.insert(SMS_TABLE, null, values);
     }
 
-    public Cursor getOneSMS(String message, String number){
+    public Cursor getOneSMS(String id){
         SQLiteDatabase db = this.getWritableDatabase();
 
 //        String selectQuery = "SELECT  * FROM " + SMS_TABLE + " WHERE " + KEY_MESSAGE
@@ -152,11 +209,7 @@ public class Database extends SQLiteOpenHelper {
 //        DatabaseUtils.stringForQuery()
 
         String select = String.format("SELECT * FROM %s WHERE %s = '%s';",
-                SMS_TABLE, KEY_NUMBER, number);
-
-/*
-        AND %s = '%s', KEY_NUMBER, number
-*/
+                SMS_TABLE, KEY_REMOTE_ID, id);
         Cursor c = db.rawQuery(select,null);
 
         return c;
@@ -185,8 +238,8 @@ public class Database extends SQLiteOpenHelper {
 //        db.update(SMS_TABLE, values, KEY_ID + " = " + id, null);
 
 
-        db.execSQL(String.format("UPDATE %s SET %s = 1 WHERE %s = %s;",
-                SMS_TABLE, KEY_DELETED_LOCAL, KEY_ID, id));
+        db.execSQL(String.format("UPDATE %s SET %s = 1 WHERE %s = '%s';",
+                SMS_TABLE, KEY_DELETED_LOCAL, KEY_REMOTE_ID, id));
 
 
     }

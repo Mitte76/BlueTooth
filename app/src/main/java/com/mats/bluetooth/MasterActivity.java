@@ -19,6 +19,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -39,6 +40,7 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
     private TextView infoText;
     private MasterService mService;
     private boolean mBound = false;
+    private ImageView toolbarStatusImg;
 
     private BluetoothAdapter mBluetoothAdapter = null;
     private SharedPreferences sharedpreferences;
@@ -57,6 +59,8 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
         setContentView(R.layout.master_activity);
         toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        toolbarStatusImg = findViewById(R.id.toolbarServiceStatus);
+
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         sharedpreferences = getSharedPreferences(MYPREFERENCES, Context.MODE_PRIVATE);
 
@@ -98,11 +102,31 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
 
         @Override
         protected void onReceiveResult(int resultCode, Bundle resultData) {
-//        protected void onReceiveResult(int resultCode, Bundle resultData) {
-            // Update the UI here...
+            switch (resultCode) {
+                case Constants.REFRESH:
+                    Log.d(TAG, "onReceiveResult: ");
+                    break;
+                case Constants.STATE_NONE:
+                    toolbarStatusImg.setImageResource(R.drawable.red_status);
+                    Log.d(TAG, "onReceiveResult: ");
+                    break;
+                case Constants.STATE_CONNECTING:
+                    toolbarStatusImg.setImageResource(R.drawable.orange_status);
 
-            Log.d(TAG, "onReceiveResult: Det funkar fan!" + resultCode);
+                    Log.d(TAG, "onReceiveResult: ");
+                    break;
+                case Constants.STATE_LISTEN:
+                    toolbarStatusImg.setImageResource(R.drawable.blue_status);
 
+                    Log.d(TAG, "onReceiveResult: ");
+                    break;
+                case Constants.STATE_CONNECTED:
+                    toolbarStatusImg.setImageResource(R.drawable.green_status);
+
+                    Log.d(TAG, "onReceiveResult: ");
+                    break;
+
+            }
         }
     };
 
@@ -292,8 +316,6 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
 
             }
         });
-
-
 
 
     }

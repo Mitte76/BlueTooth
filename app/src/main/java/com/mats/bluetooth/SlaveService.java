@@ -9,59 +9,41 @@ import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.os.ResultReceiver;
-import android.util.Base64;
 import android.util.Log;
-
 import com.mats.bluetooth.DbHelper.Database;
-
-
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
-/**
- * Created by mats on 2017-08-26.
- */
-
 public class SlaveService extends Service {
-
     private Database dbHelper;
+
     private ResultReceiver mResultReceiver;
 
-    private ArrayList<String> messageArrayList;
-
-    final int handlerState = 0;                        //used to identify handler message
-    Handler bluetoothIn;
     private BluetoothAdapter btAdapter = null;
     private static final String TAG = "SlaveService";
     private ConnectedThread mConnectedThread;
     private AcceptThread mSecureAcceptThread;
-    public Boolean isRunning, doDestroy = false;
+    public Boolean doDestroy = false;
     private String fullString = "";
     private int mState;
     private boolean stopThread;
-    // SPP UUID service - this should work for most devices
     private static final UUID BTMODULEUUID = UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66");
-    private StringBuilder recDataString = new StringBuilder();
     public static final int STATE_NONE = 0;       // we're doing nothing
     public static final int STATE_LISTEN = 1;     // now listening for incoming connections
     public static final int STATE_CONNECTING = 2; // now initiating an outgoing connection
     public static final int STATE_CONNECTED = 3;  // now connected to a remote device
-
-
+    private int turns;
     @Override
     public void onCreate() {
         super.onCreate();
@@ -77,16 +59,13 @@ public class SlaveService extends Service {
         if (intent != null) {
 
             if ("REGISTER_RECEIVER".equals(intent.getAction())) {
+                mResultReceiver = intent.getParcelableExtra("ResultReceiver");
+                sendResult(mState);
                 Log.d("BT SERVICE", "REGISTERING RECEIVER");
-                ResultReceiver receiver = intent.getParcelableExtra("ResultReceiver");
-                mResultReceiver = receiver;
-                sendResult(2);
 
             } else if ("UNREGISTER_RECEIVER".equals(intent.getAction())) {
-                // Extract the ResultReceiver ID and remove it from the map
-
                 mResultReceiver = null;
-            } else if ("SEND_MESSAGE".equals(intent.getAction())) {
+            }else if ("SEND_MESSAGE".equals(intent.getAction())) {
                 String message = intent.getStringExtra("MESSAGE_TEXT");
                 String number = intent.getStringExtra("MESSAGE_NUMBER");
                 sendMessage(message, number, null, "SMS");
@@ -95,15 +74,13 @@ public class SlaveService extends Service {
                 String id = intent.getStringExtra("MESSAGE_ID");
                 String message = intent.getStringExtra("MESSAGE_TEXT");
                 String number = intent.getStringExtra("MESSAGE_NUMBER");
-
                 sendMessage(message, number, id, "MARK_READ");
 
             } else if ("FIRST_START".equals(intent.getAction())) {
-
+                mState = STATE_NONE;
+                mResultReceiver = intent.getParcelableExtra("ResultReceiver");
+                sendResult(mState);
                 Log.d("BT SERVICE", "SERVICE STARTED");
-                ResultReceiver receiver = intent.getParcelableExtra("ResultReceiver");
-                mResultReceiver = receiver;
-                sendResult(3);
                 init();
             }
         } else {
@@ -166,26 +143,50 @@ public class SlaveService extends Service {
         };
 */
         startListening();
-        messageArrayList = new ArrayList<String>();
         dbHelper = Database.getInstance(getApplicationContext());
 
 
     }
+    private void sendResult(int number) {
+        if (mResultReceiver != null)
+            mResultReceiver.send(number, null);
+    }
 
     private void assembleBTMessage(String message) {
 
+        fullString = fullString + message;
+
+        if (fullString.contains(Constants.STOP_STRING)) {
+            fullString = fullString.replace(Constants.START_STRING, "");
+            List<String> stuff = new ArrayList<>(Arrays.asList(fullString.split(Constants.DELIMITER_STRING)));
+            if (stuff.size() > 0) {
+                int i = 0;
+                do {
+                    sortMessage(stuff.get(i));
+                    Log.d(TAG, "assembleBTMessage: Innehåller stopstring. Början på paketen = " + stuff.get(i));
+
+                    i++;
+                } while (i < stuff.size());
+            }
+            fullString = "";
+        }
+
+
+/*
+
+
+        turns++;
         boolean test = false;
 
         if (message.contains(Constants.START_STRING)) {
+            dbHelper.prepareSms();
             fullString = "";
             message = message.substring(Constants.START_STRING.length(), message.length()); //Tar bort startSträng
-            Log.d(TAG, "assembleBTMessage: Innehåller startSträng");
+            Log.d(TAG, "assembleBTMessage: Innehåller startSträng" + " turns " + turns);
             if (message.contains(Constants.STOP_STRING)) {
-                Log.d(TAG, "assembleBTMessage: Innehåller stopSträng");
-
+                Log.d(TAG, "assembleBTMessage: Innehåller stopSträng" + " turns " + turns);
                 //Det här görs om Strängen är komplett
                 List<String> stuff = new ArrayList<>(Arrays.asList(message.split(Constants.DELIMITER_STRING)));
-
                 if (stuff.size() > 0) {
                     int i = 0;
                     do {
@@ -193,33 +194,32 @@ public class SlaveService extends Service {
                         i++;
                     } while (stuff.size() > i);
                 }
+                dbHelper.deleteSms();
 
             } else if (message.contains(Constants.DELIMITER_STRING)) {
-                Log.d(TAG, "assembleBTMessage: Innehåller delimiterSträng");
-
+                Log.d(TAG, "assembleBTMessage: Innehåller delimiterSträng" + " turns " + turns);
                 //Det här görs om vissa delar finns med
                 List<String> stuff = new ArrayList<>(Arrays.asList(message.split(Constants.DELIMITER_STRING)));
                 int pkgToSend = stuff.size() - 1; // - 1 för att jag ska göra "get" på en array som börjar på 0
-
                 String lastitem = stuff.get(pkgToSend);
                 if (lastitem.substring((lastitem.length() - Constants.ITEM_STOP.length()), lastitem.length()).equals(Constants.ITEM_STOP)) {
                     // Kolla om sista delen är komplett.
-                    Log.d(TAG, "assembleBTMessage: Verkar funkar Item Stop (IF) " + lastitem.substring((lastitem.length() - Constants.ITEM_STOP.length()), lastitem.length()));
+                    Log.d(TAG, "assembleBTMessage: Start + Delimiter + Itemstop " + lastitem.substring((lastitem.length() - Constants.ITEM_STOP.length()), lastitem.length()));
                 } else {
                     pkgToSend = pkgToSend - 1;
                     //Om inte sista delen är komplett lägg in i fullstring och vänta på mer data.
-                    Log.d(TAG, "assembleBTMessage: Verkar funkar Item Stop (ELSE) " + lastitem.substring((lastitem.length() - Constants.ITEM_STOP.length()), lastitem.length()));
+                    Log.d(TAG, "assembleBTMessage: Start + Delimiter inte Itemstop " + lastitem.substring((lastitem.length() - Constants.ITEM_STOP.length()), lastitem.length()));
                     fullString = stuff.get(stuff.size() - 1);
                 }
-
+                Log.d(TAG, "assembleBTMessage: Start + Delimiter. Antal paket: " + stuff.size() + " Antal kompletta: " + (pkgToSend + 1));
                 int i = 0;
                 do {
                     sortMessage(stuff.get(i));
                     i++;
-                } while (stuff.size() <= pkgToSend);
-
-
+                    Log.d(TAG, "assembleBTMessage: " + i);
+                } while (i <= pkgToSend);
             } else {
+                Log.d(TAG, "assembleBTMessage: Start men inget komplett " + " turns " + turns);
                 //Det här görs om inga kompletta delar finns med
                 fullString = message;
             }
@@ -227,74 +227,80 @@ public class SlaveService extends Service {
 
         } else if (message.contains(Constants.STOP_STRING)) {
             // Det här görs om meddelandet har delats upp på flera buffers och sista paketet har kommit.
-/*            if (message.length() <= 20){
-                Log.d(TAG, "assembleBTMessage: " + message);
-            } else {
-                Log.d(TAG, "assembleBTMessage: Stop String " +  message.substring(message.length() - 15 , message.length()));
-
-            }*/
-            fullString = fullString + message.substring(0,message.indexOf(Constants.STOP_STRING));
-
-/*            if (fullString.length() <= 20){
-                Log.d(TAG, "assembleBTMessage: " + message);
-            } else {
-                Log.d(TAG, "assembleBTMessage: Stop String " +  fullString.substring(fullString.length() - 15 , fullString.length()));
-
-            }*/
-
-
+//            Log.d(TAG, "assembleBTMessage: vad innehåller fullstring? " + fullString.substring(fullString.length() - 400, fullString.length()));
+//            Log.d(TAG, "assembleBTMessage: vad innehåller message? " + message.substring(0, 600));
+            fullString = fullString + message.substring(0, message.indexOf(Constants.STOP_STRING));
+//            Log.d(TAG, "assembleBTMessage: vad innehåller message slutet? " + message.substring(message.length() - 200, message.length()));
 
             List<String> stuff = new ArrayList<>(Arrays.asList(fullString.split(Constants.DELIMITER_STRING)));
-
+//            Log.d(TAG, "assembleBTMessage: Innehåller stopstring. Antal paket: " + stuff.size() + " turns " + turns);
             if (stuff.size() > 0) {
                 int i = 0;
                 do {
                     sortMessage(stuff.get(i));
+//                    Log.d(TAG, "assembleBTMessage: Innehåller stopstring. Slutet på paketen = " + stuff.get(i).substring(stuff.get(i).length() - 40, stuff.get(i).length()));
+//                    Log.d(TAG, "assembleBTMessage: Innehåller stopstring. Början på paketen = " + stuff.get(i).substring(0, 40));
+
                     i++;
-                } while (stuff.size() > i);
+                } while (i < stuff.size());
             }
             fullString = "";
+            dbHelper.deleteSms();
 
         } else if (fullString.contains(Constants.DELIMITER_STRING)) {
-
+            test = true;
 
             List<String> stuff = new ArrayList<>(Arrays.asList(fullString.split(Constants.DELIMITER_STRING)));
             int pkgToSend = stuff.size() - 1; // - 1 för att jag ska göra "get" på array som börjar på 0
 
             String lastItem = stuff.get(pkgToSend);
-            if (lastItem.substring((lastItem.length() - Constants.ITEM_STOP.length()), lastItem.length()).equals(Constants.ITEM_STOP)) {
-                // Kolla om sista delen är komplett.
-                Log.d(TAG, "assembleBTMessage: Verkar funkar Item Stop (IF) " + lastItem.substring((lastItem.length() - Constants.ITEM_STOP.length()), lastItem.length()));
-                fullString = "";
+            Log.d(TAG, "assembleBTMessage: Delimiter sista paket längd" + lastItem.length());
+            if (lastItem.length() >= Constants.ITEM_STOP.length()) {
+                if (lastItem.substring((lastItem.length() - Constants.ITEM_STOP.length()), lastItem.length()).equals(Constants.ITEM_STOP)) {
+                    // Kolla om sista delen är komplett.
+                    Log.d(TAG, "assembleBTMessage: Verkar funkar Item Stop (IF) Fullstring " + lastItem.substring((lastItem.length() - Constants.ITEM_STOP.length()), lastItem.length()) + " turns " + turns);
+                    fullString = "";
+                } else {
+                    pkgToSend = pkgToSend - 1;
+                    //Om inte sista delen är komplett lägg in i fullstring och vänta på mer data.
+//                    Log.d(TAG, "assembleBTMessage: fullstring + Delimiter Tot antal paket: " + stuff.size() + " kompletta paket: " + (pkgToSend + 1) + " Sista tecknen i sista paketet: " + lastItem.substring((lastItem.length() - Constants.ITEM_STOP.length()), lastItem.length()) + " turns " + turns);
+//                    Log.d(TAG, "assembleBTMessage: fullstring + Delimiter Tot antal paket: " + stuff.size() + " kompletta paket: " + (pkgToSend + 1) + " Första tecknen i sista paketet: " + lastItem.substring(0, 140));
+                    fullString = stuff.get(stuff.size() - 1);
+//                    Log.d(TAG, "assembleBTMessage: stuff sista Början: " + stuff.get(stuff.size() - 1).substring(0, 200));
+//                    Log.d(TAG, "assembleBTMessage: stuff sista Slutet: " + stuff.get(stuff.size() - 1).substring(stuff.get(stuff.size() - 1).length() - 200, stuff.get(stuff.size() - 1).length()));
+
+                }
             } else {
+                Log.d(TAG, "assembleBTMessage: " + lastItem.length());
                 pkgToSend = pkgToSend - 1;
-                //Om inte sista delen är komplett lägg in i fullstring och vänta på mer data.
-                Log.d(TAG, "assembleBTMessage: Verkar funkar Item Stop (ELSE) " + lastItem.substring((lastItem.length() - Constants.ITEM_STOP.length()), lastItem.length()));
                 fullString = stuff.get(stuff.size() - 1);
             }
-
             int i = 0;
             do {
                 sortMessage(stuff.get(i));
+//                Log.d(TAG, "assembleBTMessage: gånger " + i);
+//                Log.d(TAG, "assembleBTMessage: Fullstring Delimiter första 50 " + stuff.get(i).substring(0, 100) + " Turn " + turns);
+//                Log.d(TAG, "assembleBTMessage: Fullstring Delimiter Storlek " + stuff.size());
+//                Log.d(TAG, "assembleBTMessage: Fullstring Delimiter Sista 25 " + stuff.get(i).substring(stuff.get(i).length() - 25, stuff.get(i).length()));
                 i++;
-            } while (stuff.size() <= pkgToSend);
+            } while (i < pkgToSend);
 
-            Log.d(TAG, "assembleBTMessage: Delimiter String ");
 
         } else {
             fullString = fullString + message;
-            Log.d(TAG, "assembleBTMessage: ELSE !!!! Meddelande med bara rå data ");
+            Log.d(TAG, "assembleBTMessage: ELSE !!!! Meddelande med bara rå data " + " turns " + turns);
         }
+*/
 
 
     }
 
     private void sendMessage(String message, String number, String id, String action) {
 
-        if (action == "MARK_READ") {
+        if (Objects.equals(action, "MARK_READ")) {
             mConnectedThread.write("(MRKRED)" + "(NUMBER" + number + "NUMBER)" + "(" + id + "ID)" + "(" + message + "MESSAGE)");
 
-        } else if (action == "SMS") {
+        } else if (Objects.equals(action, "SMS")) {
             mConnectedThread.write("(SNDSMS)" + "(NUMBER" + number + "NUMBER)" + "(MESSAGE" + message + "MESSAGE)");
 
         }
@@ -305,7 +311,8 @@ public class SlaveService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-
+        mState = STATE_NONE;
+        sendResult(mState);
         doDestroy = true;
 
 //        Log.d(TAG, "onDestroy: " + btAdapter.getScanMode());
@@ -314,15 +321,11 @@ public class SlaveService extends Service {
         if (mSecureAcceptThread != null) {
             mSecureAcceptThread.cancel();
             mSecureAcceptThread = null;
-            Log.d(TAG, "onDestroy: mSecureAcceptThread closed: " + mSecureAcceptThread);
         }
         if (mConnectedThread != null) {
             mConnectedThread.closeStreams();
             mConnectedThread = null;
-            Log.d(TAG, "onDestroy: mSecureAcceptThread closed: " + mConnectedThread);
-
         }
-
 
         btAdapter = null;
         Log.d("SERVICE", "onDestroy");
@@ -330,73 +333,53 @@ public class SlaveService extends Service {
         stopSelf();
     }
 
-    private void sendResult(int number) {
-        if (mResultReceiver != null)
-            mResultReceiver.send(number, null);
-    }
-
-
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
         return null;
     }
 
-    private void addToDb(String name, String number, String message, String time) {
-        dbHelper.addSMS(name, number, message, time);
-    }
 
     private void sortMessage(String inMessage) {
-        Bitmap bitmap = null;
-        if (inMessage.substring(0, 5).contains(Constants.IMG)) {
-            String image = inMessage.substring(inMessage.indexOf(Constants.IMG) + 5, inMessage.indexOf(Constants.ITEM_STOP) );
 
-            Log.d(TAG, "sortMessage: Bild medskickad" + image.length());
+        if ((inMessage.substring(0, 5).contains(Constants.MMS) || (inMessage.substring(0, 5).contains(Constants.SMS)))) {
+            String type = "SMS";
+            if (inMessage.substring(0, 5).contains(Constants.MMS)) {
+                type = "MMS";
+            }
+            Log.d(TAG, "sortMessage: " + inMessage);
+            String number = inMessage.substring(inMessage.indexOf(Constants.NUMBER_START) + Constants.NUMBER_START.length(), inMessage.indexOf(Constants.NUMBER_STOP));
+//            Log.d(TAG, "sortMessage: Number " + number);
+            String name = inMessage.substring(inMessage.indexOf(Constants.CONTACT_START) + Constants.CONTACT_START.length(), inMessage.indexOf(Constants.CONTACT_STOP));
+//            Log.d(TAG, "sortMessage: Name " + name);
+            String date = inMessage.substring(inMessage.indexOf(Constants.DATE_START) + Constants.DATE_START.length(), inMessage.indexOf(Constants.DATE_STOP));
+//            Log.d(TAG, "sortMessage: Date " + date);
+            String id = type + inMessage.substring(inMessage.indexOf(Constants.ID_START) + Constants.ID_START.length(), inMessage.indexOf(Constants.ID_STOP));
+//            Log.d(TAG, "sortMessage: Id " + id);
+            String message = inMessage.substring(inMessage.indexOf(Constants.MESSAGE_START) + Constants.MESSAGE_START.length(), inMessage.indexOf(Constants.MESSAGE_STOP));
+//            Log.d(TAG, "sortMessage: Message " + message);
+            String read = inMessage.substring(inMessage.indexOf(Constants.READ_START) + Constants.READ_START.length(), inMessage.indexOf(Constants.READ_STOP));
 
-            try {
-//                String tmp = img.get(0);
-                byte[] encodeByte = Base64.decode(image, Base64.DEFAULT);
-                bitmap = BitmapFactory.decodeByteArray(encodeByte, 0, encodeByte.length);
-            } catch (Exception e) {
-                e.getMessage();
+            String thread = inMessage.substring(inMessage.indexOf(Constants.THREAD_START) + Constants.THREAD_START.length(), inMessage.indexOf(Constants.THREAD_STOP));
+
+            if (inMessage.contains(Constants.IMAGE_STOP)) {
+                Log.d(TAG, "sortMessage: " + inMessage.substring(inMessage.indexOf(Constants.IMAGE_STOP) - 50, inMessage.indexOf(Constants.IMAGE_STOP)));
+                String image = inMessage.substring(inMessage.indexOf(Constants.IMAGE_START) + Constants.IMAGE_START.length(), inMessage.indexOf(Constants.IMAGE_STOP));
+                Log.d(TAG, "sortMessage: Bild medskickad" + image.length());
+                Log.d(TAG, "sortMessage: ID " + id);
+                dbHelper.addSMS(name, number, message, date, id, read, thread,image);
+            } else {
+                dbHelper.addSMS(name, number, message, date, id, read, thread);
+
             }
 
-        } else if (inMessage.substring(0, 5).contains(Constants.SMS)) {
-            String number = inMessage.substring(inMessage.indexOf("(NUMBER") + 7, inMessage.indexOf("NUMBER)"));
-//            Log.d(TAG, "sortMessage: Number " + number);
-            String name = inMessage.substring(inMessage.indexOf("(USER") + 5, inMessage.indexOf("USER)"));
-//            Log.d(TAG, "sortMessage: Name " + name);
-            String date = inMessage.substring(inMessage.indexOf("(DATE") + 5, inMessage.indexOf("DATE)"));
-//            Log.d(TAG, "sortMessage: Date " + date);
-            String id = inMessage.substring(inMessage.indexOf("(ID") + 3, inMessage.indexOf("ID)"));
-//            Log.d(TAG, "sortMessage: Id " + id);
-            String message = inMessage.substring(inMessage.indexOf("(MESSAGE") + 8, inMessage.indexOf("MESSAGE)"));
-//            Log.d(TAG, "sortMessage: Message " + message);
+            Intent intent = new Intent(getApplicationContext(), SmsActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            intent.setAction("REFRESH");
 
-            addToDb(name, number, message, date);
-
-        } else {
-            Log.d(TAG, "sortMessage: substring " + inMessage.substring(0, 5) + " " + inMessage.length());
-        }
-        Intent intent = new Intent(getApplicationContext(), SmsActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        intent.setAction("REFRESH");
-
-        if (bitmap != null) {
-            ByteArrayOutputStream _bs = new ByteArrayOutputStream();
-            bitmap.compress(Bitmap.CompressFormat.PNG, 50, _bs);
-            intent.putExtra("byteArray", _bs.toByteArray());
-            Log.d(TAG, "sortMessage: Skickar bild");
+            startActivity(intent);
         }
 
-//
-//        img.clear();
-//        sms.clear();
-
-        startActivity(intent);
-
-        // Lägg till intent till slaveactivity igen.
-        // Kolla om appen är igång annars starta.
     }
 
     private void startListening() {
@@ -537,6 +520,8 @@ public class SlaveService extends Service {
 
             mmInStream = tmpIn;
             mmOutStream = tmpOut;
+            mState = STATE_CONNECTED;
+            sendResult(mState);
         }
 
         public void run() {
@@ -552,20 +537,9 @@ public class SlaveService extends Service {
 
 
                     byteNo = mmInStream.read(buffer);
-//                    if (byteNo != -1) {
-//                        while (byteNo2 <= Constants.BUFFERSIZE - 1000) {
-//                            byteNo2 = byteNo2 + byteNo;
-//
-//                        }
-//                        String readMessage = new String(buffer, 0, byteNo2);
-//                        Log.d("DEBUG BT PART", "CONNECTED THREAD " + readMessage.length());
-//                        // Send the obtained bytes to the UI Activity via handler
-//                        assembleBTMessage(readMessage);
-//                        byteNo2 = 0;
-//
-//                    }
 
-                    Runnable myRunnable = null;
+/*
+
                     if (byteNo != -1) {
                         //ensure DATAMAXSIZE Byte is read.
                         int byteNo2 = byteNo;
@@ -575,17 +549,20 @@ public class SlaveService extends Service {
 
 //                        while (byteNo2 != bufferSize) {
                             bufferSize = bufferSize - byteNo2;
-                            Log.d(TAG, "run: Buffer " + buffer + " Byte " + byteNo + " BufferSize " + bufferSize);
+//                            Log.d(TAG, "run: Buffer " + buffer + " Byte " + byteNo + " BufferSize " + bufferSize);
 
                             byteNo2 = mmInStream.read(buffer, byteNo, bufferSize);
-
+                            if(byteNo2 == -1){
+                                break;
+                            }
 
                             byteNo = byteNo + byteNo2;
 //                            Log.d(TAG, "run: " + byteNo);
                             final int byteNo3 = byteNo;
 //                            Log.d(TAG, "run: ");
 //                            Log.d(TAG, "run: Byte2 " + byteNo2 + " Byte " + byteNo + " BufferSize " + bufferSize);
-                            myHandler.removeCallbacksAndMessages(null);
+    */
+/*                        myHandler.removeCallbacksAndMessages(null);
 
                             myRunnable = new Runnable() {
                                 @Override
@@ -596,12 +573,14 @@ public class SlaveService extends Service {
                                     Log.d(TAG, "run: Handler körts");
                                 }
                             };
-                            myHandler.postDelayed(myRunnable, 700);
+                            myHandler.postDelayed(myRunnable, 100);*//*
+
 
                         }
 
                     }
 //                    myHandler.removeCallbacksAndMessages(null);
+*/
 
                     String readMessage = new String(buffer, 0, byteNo);
 //                    Log.d(TAG, "run: " + readMessage);
@@ -616,7 +595,8 @@ public class SlaveService extends Service {
                     Log.d("DEBUG BT", e.toString());
                     Log.d("BT SERVICE", "UNABLE TO READ/WRITE, STOPPING SERVICE");
                     if (!doDestroy) {
-//                        mState = STATE_NONE;
+                        mState = STATE_NONE;
+                        sendResult(mState);
                         stopThread = true;
                         startListening();
                     }
@@ -672,6 +652,7 @@ public class SlaveService extends Service {
             }
             mmServerSocket = tmp;
             mState = STATE_LISTEN;
+            sendResult(mState);
 
         }
 
@@ -716,8 +697,6 @@ public class SlaveService extends Service {
                     }
                 }
             }
-//            Log.i(TAG, "END mAcceptThread, socket Type: " + mSocketType);
-
         }
 
         public void cancel() {

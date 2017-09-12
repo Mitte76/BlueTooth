@@ -16,7 +16,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.os.ResultReceiver;
-import android.support.v4.widget.SimpleCursorAdapter;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -26,8 +25,6 @@ import android.util.Log;
 import android.view.Display;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.ListView;
@@ -48,7 +45,8 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
     private TextView toolbarText;
     private static final String TAG = "SmsActivity";
     private ListView mListView;
-    private ImageView mImageView;
+    private ImageView mImageView, toolbarStatusImg;
+
     private RecyclerView mRecyclerView;
     private ArrayAdapter<String> mMessageArrayAdapter;
     private ArrayList<String> mMessageNumberArray;
@@ -59,7 +57,6 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
 
     private static final int REQUEST_ENABLE_BT = 3;
     //    public static final String MYPREFERENCES = "BtPrefs";
-    public static final int REFRESH = 1;
 
 
     @Override
@@ -69,7 +66,12 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
         dbHelper = Database.getInstance(getApplicationContext());
         Toolbar toolbar = findViewById(R.id.toolbar);
         toolbarText = findViewById(R.id.batteryText);
+        toolbarStatusImg = findViewById(R.id.toolbarServiceStatus);
+
         setSupportActionBar(toolbar);
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayShowTitleEnabled(false);
+        }
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         this.registerReceiver(this.mBatInfoReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
 
@@ -113,9 +115,27 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
         protected void onReceiveResult(int resultCode, Bundle resultData) {
 
             switch (resultCode) {
-                case REFRESH:
+                case Constants.REFRESH:
                     Log.d(TAG, "onReceiveResult: ");
-                    redrawScreen(null);
+                    break;
+                case Constants.STATE_NONE:
+                    toolbarStatusImg.setImageResource(R.drawable.red_status);
+                    Log.d(TAG, "onReceiveResult: ");
+                    break;
+                case Constants.STATE_CONNECTING:
+                    toolbarStatusImg.setImageResource(R.drawable.orange_status);
+
+                    Log.d(TAG, "onReceiveResult: ");
+                    break;
+                case Constants.STATE_LISTEN:
+                    toolbarStatusImg.setImageResource(R.drawable.blue_status);
+
+                    Log.d(TAG, "onReceiveResult: ");
+                    break;
+                case Constants.STATE_CONNECTED:
+                    toolbarStatusImg.setImageResource(R.drawable.green_status);
+
+                    Log.d(TAG, "onReceiveResult: ");
                     break;
             }
         }
@@ -133,14 +153,14 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
     };
 
     private void redrawScreen(Bitmap bitmap) {
-        Cursor cursor = dbHelper.getSMS();
-        List<String> dataList = new ArrayList<>();
-
-        for(cursor.moveToFirst(); !cursor.isAfterLast(); cursor.moveToNext()) {
-            // The Cursor is now set to the right position
-            dataList.add(cursor.getString(3));
-        }
-        RVAdapter rvAdapter = new RVAdapter(cursor);
+//        Cursor cursor = dbHelper.getSMS();
+//        List<String> dataList = new ArrayList<>();
+//
+//        for(cursor.moveToFirst(); !cursor.isAfterLast(); cursor.moveToNext()) {
+//            // The Cursor is now set to the right position
+//            dataList.add(cursor.getString(cursor.getColumnIndex(Database.KEY_MESSAGE)));
+//        }
+        RVAdapter rvAdapter = new RVAdapter(dbHelper.getSMS());
         if (mRecyclerView == null){
             mRecyclerView = findViewById(R.id.recyclerView);
             mRecyclerView.setAdapter(rvAdapter);
@@ -161,7 +181,10 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
             mImageView.getLayoutParams().width = width;
             mImageView.getLayoutParams().height = nh;
             mImageView.setImageBitmap(bitmap);
+            Log.d(TAG, "redrawScreen: Kommer jag hit Bitmap");
 
+        }else {
+            Log.d(TAG, "redrawScreen: Nåt fel Bitmap ");
         }
 
         setSwipeForRecyclerView();
@@ -313,7 +336,7 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
 
     private void init() {
         mRecyclerView = findViewById(R.id.recyclerView);
-        mListView = findViewById(R.id.in);
+//        mListView = findViewById(R.id.in);
         mImageView = findViewById(R.id.imageView);
         mMessageArrayAdapter = new ArrayAdapter<>(this, R.layout.message);
         mMessageNumberArray = new ArrayList<>();
@@ -335,6 +358,7 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
                 Bitmap bitmap = BitmapFactory.decodeByteArray(
                         intent.getByteArrayExtra("byteArray"),0,intent.getByteArrayExtra("byteArray").length);
                 redrawScreen(bitmap);
+                Log.d(TAG, "onNewIntent: Här?");
             } else {
                 redrawScreen(null);
 

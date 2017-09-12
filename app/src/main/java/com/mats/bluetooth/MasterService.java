@@ -6,27 +6,24 @@ import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+import android.content.ContentResolver;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.provider.ContactsContract;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
-import android.support.v4.content.ContextCompat;
 import android.support.v4.os.ResultReceiver;
 import android.telephony.SmsManager;
 import android.util.Base64;
 import android.util.Log;
 
+import com.mats.bluetooth.Model.Msg;
 import com.mats.bluetooth.listeners.SmsListener;
 import com.mats.bluetooth.listeners.SmsListener.Listener;
 
@@ -35,18 +32,20 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
+import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.UUID;
 
 
 public class MasterService extends Service implements Listener {
 
-//    private final IBinder mBinder = new LocalBinder();
-
+    //    private final IBinder mBinder = new LocalBinder();
+    private ArrayList<Msg> messages;
     private Constants mConstants;
     final int handlerState = 0;                        //used to identify handler message
-    Handler bluetoothIn;
+    private Handler bluetoothIn;
+    private int mState = Constants.STATE_NONE;
     private BluetoothAdapter btAdapter = null;
     private SmsListener mSmsListener;
     private static final String TAG = "MasterService";
@@ -73,7 +72,7 @@ public class MasterService extends Service implements Listener {
         super.onCreate();
         Log.d("BT SERVICE", "SERVICE CREATED");
         stopThread = false;
-        mConstants = new Constants();
+
     }
 
 
@@ -85,7 +84,7 @@ public class MasterService extends Service implements Listener {
                 Log.d("BT SERVICE", "REGISTERING RECEIVER");
                 ResultReceiver receiver = intent.getParcelableExtra("ResultReceiver");
                 mResultReceiver = receiver;
-                sendResult(2);
+                sendResult(mState);
 
             } else if ("UNREGISTER_RECEIVER".equals(intent.getAction())) {
 
@@ -96,8 +95,9 @@ public class MasterService extends Service implements Listener {
                 ResultReceiver receiver = intent.getParcelableExtra("ResultReceiver");
                 mResultReceiver = receiver;
                 MAC_ADDRESS = intent.getExtras().getString("mac_address");
-
-
+                sendResult(mState);
+                init();
+            }
 
 
 
@@ -153,11 +153,6 @@ public class MasterService extends Service implements Listener {
                 registerReceiver(intentReceiver, intentFilter);
 */
 
-                init();
-
-
-            }
-
 
         }
         return START_STICKY;
@@ -181,7 +176,6 @@ public class MasterService extends Service implements Listener {
         btAdapter = BluetoothAdapter.getDefaultAdapter();       // get Bluetooth adapter
 
         isHandlerRunning = false;
-        isRunning = true;
         bluetoothIn = new Handler() {
 
             public void handleMessage(android.os.Message msg) {
@@ -201,8 +195,7 @@ public class MasterService extends Service implements Listener {
         mSmsListener.setListener(this);
         mRetryHandler = new Handler(Looper.getMainLooper());
         checkBTState();
-
-
+        messages = new ArrayList<>();
     }
 
     private void sendResult(int number) {
@@ -364,6 +357,7 @@ public class MasterService extends Service implements Listener {
         }
     }
 
+/*
     public byte[] getBytesFromBitmap(Bitmap bitmap) {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream);
@@ -391,122 +385,280 @@ public class MasterService extends Service implements Listener {
         bitmap.copyPixelsToBuffer(buffer);
         return new ByteArrayInputStream(buffer.array());
     }
-
-
-
-
-
+*/
 
 
     private void sendMessage() {
+        scanMMS();
+        scanSMS();
 
-        Cursor cursor = getContentResolver().query(Uri.parse("content://sms/inbox?simple=true"), null, "read = 0", null, null);
-        Log.d(TAG, "sendMessage: ");
-
-
-
-
-//        Drawable drawable = null;
-//        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-//            drawable = ContextCompat.getDrawable(this, R.drawable.big_panda);
-//        }
-//        BitmapDrawable bitmapDrawable = ((BitmapDrawable) drawable);
-//        Bitmap bitmap = bitmapDrawable.getBitmap();
-//        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-//
-//        bitmap.compress(Bitmap.CompressFormat.JPEG, 50, stream); //use the compression format of your need
-////        InputStream is = new ByteArrayInputStream(stream.toByteArray());
-
-//        Bitmap bitmap;
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-//            bitmap = drawableToBitmap(getDrawable(R.drawable.tiger));
-//        } else {
-//            bitmap = null;
-//        }
-
-//        InputStream test = bitmapToInputStream(bitmap);
-
-
-//        String imgString = Base64.encodeToString(getBytesFromBitmap(bitmap),
-//                Base64.NO_WRAP);
-
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        Bitmap bm = BitmapFactory.decodeResource(getResources(), R.drawable.tiger);
-
-        int nh = (int) ( bm.getHeight() * (800.0 / bm.getWidth()) );
-        Bitmap scaled = Bitmap.createScaledBitmap(bm, 800, nh, true);
-
-
-        scaled.compress(Bitmap.CompressFormat.JPEG, 100, baos);
-
-
-        byte[] b = baos.toByteArray();
-        String temp = Base64.encodeToString(b, Base64.DEFAULT);
-//        Log.d(TAG, "sendMessage: tempSize = " + temp.length());
-        temp = Constants.IMG + temp + Constants.ITEM_STOP + Constants.DELIMITER_STRING;
-//        temp = "[IMG]" + temp;
-
-        if (cursor != null && cursor.moveToFirst()) { // must check the result to prevent exception
-            int i = 0;
-//            Log.d(TAG, "sendMessage: " + cursor.getString(0) + " " + cursor.getString(4) + " " + cursor.getString(5));
-            ArrayList<String> mArrayList = new ArrayList<String>();
-//            Log.d(TAG, "sendMessage: " + Arrays.toString(cursor.getColumnNames()));
-            mConnectedThread.write(Constants.START_STRING);
-
+        if (messages.size() > 0) {
+            if (!stopThread) {
+                mConnectedThread.write(Constants.START_STRING);
+            }
+            int j = 0;
             do {
-                if (cursor.getInt(7) == 0) {
-                    String user1 = getContactName(cursor.getString(2));
-                    String user = getContactName(user1);
-                    mArrayList.add(Constants.SMS + "(NUMBER" + cursor.getString(2) + "NUMBER)" + "(USER" + user + "USER)"
-                            + "(DATE" + cursor.getString(4) + "DATE)"
-                            + "(ID" + cursor.getString(0) + "ID)" + "(MESSAGE" + cursor.getString(12) + "MESSAGE)");
-                    mConnectedThread.write("[SMS]" + "(NUMBER" + cursor.getString(2) + "NUMBER)" + "(USER" + user + "USER)"
-                            + "(DATE" + cursor.getString(4) + "DATE)"
-                            + "(ID" + cursor.getString(0) + "ID)" + "(MESSAGE" + cursor.getString(12) + "MESSAGE)" + Constants.ITEM_STOP
-                            + Constants.DELIMITER_STRING);
 
-                } else {
-                    Log.d(TAG, "sendMessage: Redan läst: " + cursor.getString(7));
+                Msg msg = messages.get(j);
+
+
+                if (msg.getType().equals("SMS")) {
+                    if (!stopThread) {
+
+                        mConnectedThread.write(Constants.SMS + Constants.NUMBER_START + msg.getAddress() + Constants.NUMBER_STOP
+                                + Constants.CONTACT_START + msg.getContact() + Constants.CONTACT_STOP
+                                + Constants.DATE_START + msg.getDate() + Constants.DATE_STOP
+                                + Constants.ID_START + msg.getID() + Constants.ID_STOP
+                                + Constants.MESSAGE_START + msg.getBody() + Constants.MESSAGE_STOP
+                                + Constants.READ_START + msg.getRead() + Constants.READ_STOP
+                                + Constants.THREAD_START + msg.getThread() + Constants.THREAD_STOP
+                                + Constants.ITEM_STOP + Constants.DELIMITER_STRING);
+                        Log.d(TAG, "sendMessage: ID SMS " + msg.getID());
+                    }
+
+                } else if (msg.getType().equals("MMS")) {
+                    if (!stopThread) {
+
+                        mConnectedThread.write(Constants.MMS + Constants.NUMBER_START + msg.getAddress() + Constants.NUMBER_STOP
+                                + Constants.CONTACT_START + msg.getContact() + Constants.CONTACT_STOP
+                                + Constants.DATE_START + msg.getDate() + Constants.DATE_STOP
+                                + Constants.ID_START + msg.getID() + Constants.ID_STOP
+                                + Constants.MESSAGE_START + msg.getBody() + Constants.MESSAGE_STOP
+                                + Constants.THREAD_START + msg.getThread() + Constants.THREAD_STOP
+                                + Constants.READ_START + msg.getRead() + Constants.READ_STOP);
+                        Log.d(TAG, "sendMessage: ID MMS " + msg.getID());
+
+                    }
+                    if (msg.hasImg()) {
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        Bitmap bm = msg.getImg();
+//                        Bitmap bm = BitmapFactory.decodeResource(getResources(), R.drawable.tiger);
+
+                        int nh = (int) (bm.getHeight() * (400.0 / bm.getWidth()));
+                        Bitmap scaled = Bitmap.createScaledBitmap(bm, 400, nh, true);
+                        scaled.compress(Bitmap.CompressFormat.JPEG, 80, baos);
+                        byte[] b = baos.toByteArray();
+                        String img = Base64.encodeToString(b, Base64.DEFAULT);
+                        if (!stopThread) {
+                            mConnectedThread.write(Constants.IMAGE_START + img + Constants.IMAGE_STOP);
+                        }
+                    }
+                    if (!stopThread) {
+                        mConnectedThread.write(Constants.ITEM_STOP + Constants.DELIMITER_STRING);
+                    }
+                    Log.d(TAG, "sendMessage: " + j);
                 }
-                i++;
-//                    cursor.moveToNext();
+                j++;
+
+            } while (messages.size() > j);
+            if (!stopThread) {
+                mConnectedThread.write(Constants.STOP_STRING);
+            }
+        }
+
+    }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-            } while /*(i < 10)*/(cursor.moveToNext());
-            cursor.close();
-//            mConnectedThread.write(temp);
+    public void scanMMS() {
+        System.out.println("==============================ScanMMS()==============================");
+        //Initialize Box
+        Uri uri = Uri.parse("content://mms");
+        String[] proj = {"*"};
+        ContentResolver cr = getContentResolver();
+
+        Cursor c = cr.query(uri, proj, "read = 0", null, null);
+
+        if (c.moveToFirst()) {
+            do {
+//                Log.d(TAG, "scanMMS: " + Arrays.toString(c.getColumnNames()));
+                /*String[] col = c.getColumnNames();
+                String str = "";
+                for(int i = 0; i < col.length; i++) {
+                    str = str + col[i] + ": " + c.getString(i) + ", ";
+                }
+                System.out.println(str);*/
+                System.out.println("--------------------MMS------------------");
+                Msg msg = new Msg(c.getString(c.getColumnIndex("_id")));
+                msg.setType("MMS");
+                msg.setThread(c.getString(c.getColumnIndex("thread_id")));
+                msg.setDate(c.getString(c.getColumnIndex("date")));
+                msg.setRead(c.getString(c.getColumnIndex("read")));
+                Log.d(TAG, "scanMMS: Read? " + msg.getRead());
+                msg.setContact(getContactName(getMmsAddr(msg.getID())));
+                msg.setAddr(getMmsAddr(msg.getID()));
+                parseMMS(msg);
+//                System.out.println(msg.toString());
+                messages.add(msg);
+            } while (c.moveToNext());
+        }
+
+        c.close();
+
+    }
 
 
+    public void parseMMS(Msg msg) {
+        Uri uri = Uri.parse("content://mms/part");
+        String mmsId = "mid = " + msg.getID();
+        Cursor c = getContentResolver().query(uri, null, mmsId, null, null);
+        while (c.moveToNext()) {
 
-
-
-//            temp = Constants.IMG + temp + Constants.ITEM_STOP + Constants.DELIMITER_STRING;
-//            if(!stopThread) {
-//                mConnectedThread.write(Constants.IMG);
-//            }
-//            if(!stopThread) {
-//                mConnectedThread.write(test);
-//            }
-//            if(!stopThread) {
-//                mConnectedThread.write(Constants.ITEM_STOP + Constants.DELIMITER_STRING);
-//            }
-            if(!stopThread) {
-                mConnectedThread.write(temp);
+            String pid = c.getString(c.getColumnIndex("_id"));
+            String type = c.getString(c.getColumnIndex("ct"));
+            if ("text/plain".equals(type)) {
+                msg.setBody(msg.getBody() + c.getString(c.getColumnIndex("text")));
+            } else if (type.contains("image")) {
+                msg.setImg(getMmsImg(pid));
             }
 
 
-        } else {
-            // empty box, no SMS
-            Log.d(TAG, "sendMessage: No sms");
         }
-//        mConnectedThread.closeStreams();
-        if(!stopThread) {
-            mConnectedThread.write(Constants.STOP_STRING);
+        c.close();
+        return;
+    }
+
+
+    public Bitmap getMmsImg(String id) {
+        Uri uri = Uri.parse("content://mms/part/" + id);
+        InputStream in = null;
+        Bitmap bitmap = null;
+
+
+        try {
+            in = getContentResolver().openInputStream(uri);
+            bitmap = BitmapFactory.decodeStream(in);
+        } catch (IOException e) {
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (IOException e) {
+                }
+            }
         }
+        return bitmap;
+
+    }
+
+    public String getMmsAddr(String id) {
+        String sel = new String("msg_id=" + id);
+        String uriString = MessageFormat.format("content://mms/{0}/addr", id);
+        Uri uri = Uri.parse(uriString);
+        Cursor c = getContentResolver().query(uri, null, sel, null, null);
+        String name = "";
+        String val;
+        if (c.moveToFirst()) {
+            if (c.moveToFirst()) {
+                do {
+                    val = c.getString(c.getColumnIndex("address"));
+                    if (val != null) {
+                        name = val;
+                        // Use the first one found if more than one
+                        break;
+                    }
+                } while (c.moveToNext());
+            }
+        }
+        c.close();
+//        Log.d(TAG, "getMmsAddr: " + name);
+        return name;
+    }
+
+
+    public void scanSMS() {
+        System.out.println("==============================ScanSMS()==============================");
+        //Initialize Box
+        Uri uri = Uri.parse("content://sms");
+        String[] proj = {"*"};
+        ContentResolver cr = getContentResolver();
+
+        Cursor c = cr.query(uri, proj, "read = 0", null, null);
+
+
+        if (c.moveToFirst()) {
+            do {
+                String[] col = c.getColumnNames();
+                String str = "";
+                for (int i = 0; i < col.length; i++) {
+                    str = str + col[i] + ": " + c.getString(i) + ", ";
+                }
+                //System.out.println(str);
+
+                System.out.println("--------------------SMS------------------");
+
+
+                Cursor thread = cr.query(uri, proj, "thread_id = " + c.getString(c.getColumnIndex("thread_id")), null, null);
+                if (thread.moveToFirst()) {
+                    int i = 0;
+
+                    do {
+                        Msg msg = new Msg(thread.getString(thread.getColumnIndex("_id")));
+
+                        msg.setType("SMS");
+                        msg.setDate(thread.getString(thread.getColumnIndex("date")));
+                        msg.setThread(thread.getString(thread.getColumnIndex("thread_id")));
+                        msg.setAddr(thread.getString(thread.getColumnIndex("Address")));
+                        msg.setBody(thread.getString(thread.getColumnIndex("body")));
+                        msg.setDirection(thread.getString(thread.getColumnIndex("type")));
+                        msg.setContact(getContactName(thread.getString(c.getColumnIndex("Address"))));
+                        msg.setRead(getContactName(thread.getString(c.getColumnIndex("read"))));
+                        Log.d(TAG, "scanMMS: Read? " + msg.getRead());
+
+                        messages.add(msg);
+                        i++;
+                    } while (thread.moveToNext() && i != 10);
+
+                }
+                thread.close();
+
+            } while (c.moveToNext());
+        }
+        c.close();
+
+/*
+
+
+
+        Cursor c = cr.query(uri, proj, "thread ", null, null);
+
+
+
+
+        if (c.moveToFirst()) {
+            do {
+                String[] col = c.getColumnNames();
+                String str = "";
+                for (int i = 0; i < col.length; i++) {
+                    str = str + col[i] + ": " + c.getString(i) + ", ";
+                }
+                //System.out.println(str);
+
+                System.out.println("--------------------SMS------------------");
+
+                Msg msg = new Msg(c.getString(c.getColumnIndex("_id")));
+                msg.setType("SMS");
+                msg.setDate(c.getString(c.getColumnIndex("date")));
+                msg.setAddr(c.getString(c.getColumnIndex("Address")));
+                msg.setBody(c.getString(c.getColumnIndex("body")));
+                msg.setDirection(c.getString(c.getColumnIndex("type")));
+                msg.setContact(getContactName(c.getString(c.getColumnIndex("Address"))));
+//                System.out.println(msg);
+                messages.add(msg);
+
+            } while (c.moveToNext());
+        }
+        c.close();
+
+
+*/
 
 
     }
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 
     private String getContactName(final String phoneNumber) {
@@ -528,13 +680,12 @@ public class MasterService extends Service implements Listener {
             }
             cursor.close();
 //                    Log.d(TAG, "getContactName:" + contactName + ".");
-            if (contactName == "") {
+            if (Objects.equals(contactName, "")) {
                 out = phoneNumber;
             } else {
                 out = contactName;
             }
         }
-
 
 //        else {
 //            checkPermission(getContext(), Manifest.permission.READ_CONTACTS);
@@ -557,6 +708,8 @@ public class MasterService extends Service implements Listener {
     }
 
     private void doRetry() {
+        mState = Constants.STATE_NONE;
+        sendResult(mState);
         if (mConnectedThread != null) {
             mConnectedThread.closeStreams();
             mConnectedThread = null;
@@ -565,29 +718,38 @@ public class MasterService extends Service implements Listener {
             mConnectingThread.closeSocket();
             mConnectingThread = null;
         }
-        isHandlerRunning = true;
-        if (timesRetried <= 3 && !doDestroy) {
+        if (timesRetried <= 3 && !doDestroy && !isHandlerRunning) {
             mRetryHandler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    checkBTState();
-                    timesRetried++;
-                    isHandlerRunning = false;
+                    if (!isRunning) {
+                        checkBTState();
+                        timesRetried++;
+                        isHandlerRunning = false;
+                        Log.d(TAG, "run: 10 sec körs");
+                    }
                 }
             }, 10000);
             Log.d(TAG, "doRetry, not Destroy < 3" + timesRetried);
+            isHandlerRunning = true;
 
-        } else if (timesRetried > 3 && !doDestroy) {
+
+        } else if (timesRetried > 3 && !doDestroy && !isHandlerRunning) {
 
             Log.d(TAG, "doRetry, not Destroy > 3" + timesRetried);
             mRetryHandler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    checkBTState();
-                    timesRetried++;
-                    isHandlerRunning = false;
+                    if (!isRunning) {
+                        checkBTState();
+                        timesRetried++;
+                        isHandlerRunning = false;
+                        Log.d(TAG, "run: 60 sec körs");
+                    }
                 }
             }, 60000);
+            isHandlerRunning = true;
+
         } else {
             Log.d(TAG, "doRetry, Destroy " + timesRetried);
 
@@ -602,6 +764,9 @@ public class MasterService extends Service implements Listener {
         private final BluetoothDevice mmDevice;
 
         public ConnectingThread(BluetoothDevice device) {
+            mState = Constants.STATE_CONNECTING;
+            sendResult(mState);
+
             Log.d("DEBUG BT", "IN CONNECTING THREAD");
             mmDevice = device;
             BluetoothSocket temp = null;
@@ -632,13 +797,13 @@ public class MasterService extends Service implements Listener {
                 mConnectedThread.start();
                 Log.d("DEBUG BT", "CONNECTED THREAD STARTED");
 //                mConnectedThread.write("x");
-                sendMessage();
+//                sendMessage();
             } catch (IOException e) {
                 try {
                     Log.d("DEBUG BT", "SOCKET CONNECTION FAILED : " + e.toString());
                     Log.d("BT SERVICE", "SOCKET CONNECTION FAILED, STOPPING SERVICE");
                     mmSocket.close();
-//                    isRunning2 = false;
+                    isRunning = false;
                     if (!isHandlerRunning) {
                         doRetry();
                     } else {
@@ -688,7 +853,7 @@ public class MasterService extends Service implements Listener {
             } catch (IOException e) {
                 Log.d("DEBUG BT", e.toString());
                 Log.d("BT SERVICE", "UNABLE TO READ/WRITE, STOPPING SERVICE");
-//                isRunning2 = false;
+                isRunning = false;
                 if (!isHandlerRunning) {
                     doRetry();
                 } else {
@@ -701,12 +866,18 @@ public class MasterService extends Service implements Listener {
         }
 
         public void run() {
+            timesRetried = 0;
+            mRetryHandler.removeCallbacksAndMessages(null);
             stopThread = false;
+            isRunning = true;
+
             Log.d("DEBUG BT", "IN CONNECTED THREAD RUN");
             byte[] buffer = new byte[Constants.BUFFERSIZE];
             int bytes;
             timesRetried = 0;
-
+            mState = Constants.STATE_CONNECTED;
+            sendResult(mState);
+            sendMessage();
             // Keep looping to listen for received messages
             while (!stopThread) {
                 try {
@@ -718,8 +889,7 @@ public class MasterService extends Service implements Listener {
                 } catch (IOException e) {
                     Log.d("DEBUG BT", e.toString());
                     Log.d("BT SERVICE", "UNABLE TO READ/WRITE, STOPPING SERVICE");
-//                    isRunning2 = false;
-
+                    isRunning = false;
                     if (!isHandlerRunning) {
                         stopThread = true;
                         doRetry();

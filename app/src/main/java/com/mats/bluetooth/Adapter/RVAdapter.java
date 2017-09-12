@@ -27,7 +27,7 @@ import java.util.List;
 
 public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ItemViewHolder> {
     private static final String TAG = "RVAdapter";
-    private List<String> messageList, userList, idList, numberList;
+    private List<String> messageList, userList, idList, numberList, threadList;
     private List<String> itemsPendingRemoval;
     private Database dbHelper;
     private Context context;
@@ -53,17 +53,18 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ItemViewHolder> {
         userList = new ArrayList<>();
         numberList = new ArrayList<>();
         idList = new ArrayList<>();
+        threadList = new ArrayList<>();
         for(mCursor.moveToFirst(); !mCursor.isAfterLast(); mCursor.moveToNext()) {
             // The Cursor is now set to the right position
-            idList.add(mCursor.getString(0));
-            numberList.add(mCursor.getString(1));
-            userList.add(mCursor.getString(2));
-            messageList.add(mCursor.getString(3));
-
-            Log.d(TAG, "RVAdapter: 0" + mCursor.getString(0));
-            Log.d(TAG, "RVAdapter: 1" + mCursor.getString(1));
-            Log.d(TAG, "RVAdapter: 2" + mCursor.getString(2));
-            Log.d(TAG, "RVAdapter: 3" + mCursor.getString(3));
+            idList.add(mCursor.getString(mCursor.getColumnIndex(Database.KEY_REMOTE_ID)));
+            threadList.add(mCursor.getString(mCursor.getColumnIndex(Database.KEY_THREAD)));
+            numberList.add(mCursor.getString(mCursor.getColumnIndex(Database.KEY_NUMBER)));
+            userList.add(mCursor.getString(mCursor.getColumnIndex(Database.KEY_NAME)));
+            messageList.add(mCursor.getString(mCursor.getColumnIndex(Database.KEY_MESSAGE)));
+            Log.d(TAG, "RVAdapter: ID " + mCursor.getString(mCursor.getColumnIndex(Database.KEY_REMOTE_ID)));
+            Log.d(TAG, "RVAdapter: 1 " + mCursor.getString(1));
+            Log.d(TAG, "RVAdapter: 2 " + mCursor.getString(2));
+            Log.d(TAG, "RVAdapter: 3 " + mCursor.getString(3));
         }
 
 
@@ -83,6 +84,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ItemViewHolder> {
 
         final String message = messageList.get(position);
         final String number = numberList.get(position);
+        final String thread = threadList.get(position);
         final String user = userList.get(position);
         final String id = idList.get(position);
 
@@ -111,18 +113,19 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ItemViewHolder> {
                 @Override
                 public void onClick(View view) {
 
-                    if (number.substring(0, 1).equals("+")) {
+//                    if (number.substring(0, 1).equals("+")) {
                         android.support.v4.app.DialogFragment addingTaskDialogFragment2 = new AddingTaskDialogFragment2();
                         Bundle args = new Bundle();
                         args.putString("id", id);
                         args.putString("user", user);
                         args.putString("number", number);
                         args.putString("message", message);
+                        args.putString("thread", thread);
                         addingTaskDialogFragment2.setArguments(args);
                         addingTaskDialogFragment2.show(((AppCompatActivity) context).getSupportFragmentManager(), "AddingTaskDialogFragment");
-                    } else {
-                        Toast.makeText(context, R.string.no_reply, Toast.LENGTH_SHORT).show();
-                    }
+//                    } else {
+//                        Toast.makeText(context, R.string.no_reply, Toast.LENGTH_SHORT).show();
+//                    }
 
 
 
