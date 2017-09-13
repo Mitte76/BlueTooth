@@ -2,18 +2,17 @@ package com.mats.bluetooth.Adapter;
 
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Color;
 import android.graphics.Point;
 import android.os.Handler;
 import android.support.v4.content.ContextCompat;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.widget.RecyclerView;
 import android.text.Spannable;
 import android.text.SpannableString;
-import android.text.TextUtils;
-import android.text.style.BackgroundColorSpan;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
 import android.util.Base64;
@@ -22,6 +21,7 @@ import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -38,7 +38,7 @@ import java.util.Objects;
 
 public class RVAdapter2 extends RecyclerView.Adapter<RVAdapter2.ItemViewHolder> {
     private static final String TAG = "RVAdapter";
-    private List<String> messageList, userList, readlist, numberList;
+    private List<String> messageList, userList, readlist, dirList;
     private List<Bitmap> bitmapList;
     private List<String> itemsPendingRemoval;
     private Database dbHelper;
@@ -55,21 +55,21 @@ public class RVAdapter2 extends RecyclerView.Adapter<RVAdapter2.ItemViewHolder> 
 
     public RVAdapter2(Cursor mCursor) {
         dbHelper = Database.getInstance(context);
-//        this.messageList = messageList;
         itemsPendingRemoval = new ArrayList<>();
         bitmapList = new ArrayList<>();
         messageList = new ArrayList<>();
         userList = new ArrayList<>();
-        numberList = new ArrayList<>();
         readlist = new ArrayList<>();
+        dirList = new ArrayList<>();
+
         for (mCursor.moveToFirst(); !mCursor.isAfterLast(); mCursor.moveToNext()) {
             // The Cursor is now set to the right position
             Bitmap bitmap = null;
 
             readlist.add(mCursor.getString(mCursor.getColumnIndex(Database.KEY_READ)));
-            numberList.add(mCursor.getString(mCursor.getColumnIndex(Database.KEY_NUMBER)));
             userList.add(mCursor.getString(mCursor.getColumnIndex(Database.KEY_NAME)));
             messageList.add(mCursor.getString(mCursor.getColumnIndex(Database.KEY_MESSAGE)));
+            dirList.add(mCursor.getString(mCursor.getColumnIndex(Database.KEY_DIRECTION)));
             String image = mCursor.getString(mCursor.getColumnIndex(Database.KEY_IMAGE));
             if (image != null) {
                 try {
@@ -100,13 +100,39 @@ public class RVAdapter2 extends RecyclerView.Adapter<RVAdapter2.ItemViewHolder> 
         return new ItemViewHolder(itemView);
     }
 
+    private void showImage(final Bitmap bitmap){
+
+        ImageView image = new ImageView(context);
+        image.setImageBitmap(bitmap);
+
+        AlertDialog.Builder builder =
+                new AlertDialog.Builder(context).
+                        setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                            }
+                        }).
+                        setView(image);
+        builder.create().show();
+
+
+    }
+
+
     @Override
     public void onBindViewHolder(ItemViewHolder holder, int position) {
-
+        String tmp;
         final String message = messageList.get(position);
-        final String user = userList.get(position) + ": ";
         final String read = readlist.get(position);
+        final String direction = dirList.get(position);
         final Bitmap bitmap = bitmapList.get(position);
+        if (Objects.equals(direction, "1")) {
+            tmp = userList.get(position) + ": ";
+        } else {
+            tmp = "Me: ";
+        }
+        final String user = tmp;
         if (itemsPendingRemoval.contains(message)) {
             holder.regularLayout.setVisibility(View.GONE);
             holder.swipeLayout.setVisibility(View.VISIBLE);
@@ -119,48 +145,68 @@ public class RVAdapter2 extends RecyclerView.Adapter<RVAdapter2.ItemViewHolder> 
         } else {
             holder.regularLayout.setVisibility(View.VISIBLE);
             holder.swipeLayout.setVisibility(View.GONE);
-//            holder.listNumber.setText(user);
-//            holder.listNumber.setEllipsize(TextUtils.TruncateAt.MARQUEE);
-//            holder.listNumber.setSingleLine(true);
-//            holder.listNumber.setSelected(true);
-            SpannableString s = new SpannableString(user + message);
-
+            SpannableString s;
+            if (bitmap != null && message.isEmpty()) {
+                s = new SpannableString(user + context.getResources().getString(R.string.user_sent_message));
+            } else {
+                s = new SpannableString(user + message);
+            }
             ForegroundColorSpan bgNumber = new ForegroundColorSpan(ContextCompat.getColor(context, R.color.number_bg));
             s.setSpan(bgNumber, 0, user.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-//            SpannableString spannableString = new SpannableString(user + message);
-//            BackgroundColorSpan bgMessage = new BackgroundColorSpan(ContextCompat.getColor(context,R.color.unread_msg_text_bg));
-//            s.setSpan(new android.text.style.LeadingMarginSpan.Standard(user.length(), 0), 0, 1, 0);
+
             if (Objects.equals(read, "0")) {
-//                ForegroundColorSpan bgMessage = new ForegroundColorSpan(ContextCompat.getColor(context,R.color.unread_msg_text_bg));
-//                s.setSpan(bgMessage, user.length() , s.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                 StyleSpan bold = new StyleSpan(android.graphics.Typeface.BOLD);
                 s.setSpan(bold, 0, s.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-//                ForegroundColorSpan bgNumber = new ForegroundColorSpan(ContextCompat.getColor(context,R.color.number_bg_bold));
-//                s.setSpan(bgNumber, 0, user.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
 
-//                holder.listMessage.setBackgroundColor(Color.LTGRAY);
+            if (Objects.equals(direction, "1")) {
+                holder.listMessageLeft.setText(s);
+                if (bitmap != null) {
+                    Point size = new Point();
+                    WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+                    Display display = wm.getDefaultDisplay();
+                    display.getSize(size);
+                    int width = size.x / 7;
+                    int nh = (int) (bitmap.getHeight() * ((double) width / bitmap.getWidth()));
+                    holder.mmsImageviewLeft.getLayoutParams().width = width;
+                    holder.mmsImageviewLeft.getLayoutParams().height = nh;
+                    holder.mmsImageviewLeft.setImageBitmap(bitmap);
+                    holder.mmsImageviewLeft.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            showImage(bitmap);
+                        }
+                    });
+                }
+
             } else {
+                holder.listMessageRight.setText(s);
+                holder.regularLayout.setBackgroundColor(ContextCompat.getColor(context, R.color.bg_owner_layout));
+                if (bitmap != null) {
+                    Point size = new Point();
+                    WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+                    Display display = wm.getDefaultDisplay();
+                    display.getSize(size);
+                    int width = size.x / 7;
+                    int nh = (int) (bitmap.getHeight() * ((double) width / bitmap.getWidth()));
+                    holder.mmsImageviewRight.getLayoutParams().width = width;
+                    holder.mmsImageviewRight.getLayoutParams().height = nh;
+                    holder.mmsImageviewRight.setImageBitmap(bitmap);
+                    holder.mmsImageviewRight.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            showImage(bitmap);
+                        }
+                    });
+                }
 
-                Log.d(TAG, "onBindViewHolder: " + read);
             }
-            holder.listMessage.setText(s);
 
-            if (bitmap != null) {
-                Point size = new Point();
-                WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
-                Display display = wm.getDefaultDisplay();
-                display.getSize(size);
-                int width = size.x / 7;
-                int nh = (int) (bitmap.getHeight() * ((double) width / bitmap.getWidth()));
-                holder.mmsImageview.getLayoutParams().width = width;
-                holder.mmsImageview.getLayoutParams().height = nh;
-                holder.mmsImageview.setImageBitmap(bitmap);
-            }
 
-//            holder.listMessage.setEllipsize(TextUtils.TruncateAt.END);
-//            holder.listMessage.setSingleLine(true);
-//            holder.listMessage.setSelected(true);
+//            holder.listMessageLeft.setEllipsize(TextUtils.TruncateAt.END);
+//            holder.listMessageLeft.setSingleLine(true);
+//            holder.listMessageLeft.setSelected(true);
 
         }
     }
@@ -227,19 +273,21 @@ public class RVAdapter2 extends RecyclerView.Adapter<RVAdapter2.ItemViewHolder> 
 
         public RelativeLayout regularLayout;
         public LinearLayout swipeLayout;
-        public TextView listNumber, listMessage;
+        public TextView listNumber, listMessageLeft, listMessageRight;
         public TextView undo;
-        public ImageView mmsImageview;
+        public ImageView mmsImageviewLeft, mmsImageviewRight;
 
         public ItemViewHolder(View view) {
             super(view);
 
             regularLayout = (RelativeLayout) view.findViewById(R.id.regularLayout);
             listNumber = (TextView) view.findViewById(R.id.list_number);
-            listMessage = (TextView) view.findViewById(R.id.list_message);
+            listMessageLeft = (TextView) view.findViewById(R.id.list_message_left);
+            listMessageRight = (TextView) view.findViewById(R.id.list_message_right);
             swipeLayout = (LinearLayout) view.findViewById(R.id.swipeLayout);
             undo = (TextView) view.findViewById(R.id.undo);
-            mmsImageview = view.findViewById(R.id.mmsImageView);
+            mmsImageviewLeft = view.findViewById(R.id.mmsImageViewLeft);
+            mmsImageviewRight = view.findViewById(R.id.mmsImageViewRight);
         }
     }
 

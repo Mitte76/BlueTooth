@@ -43,6 +43,7 @@
     <string name="deleted_label">Delete</string>
     <string name="undo_label">Undo</string>
     <string name="undelete_sms">Undelete sms</string>
+    <string name="user_sent_message">Sent a message</string>
 
 
 </resources>

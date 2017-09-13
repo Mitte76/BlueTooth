@@ -18,9 +18,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 
 import com.mats.bluetooth.DbHelper.Database;
@@ -120,10 +118,10 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ItemViewHolder> {
 //            userOut.setSpan(userColor, 0, user.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
 
-//            holder.listMessage.setText(message);
-//            holder.listMessage.setEllipsize(TextUtils.TruncateAt.END);
-//            holder.listMessage.setSingleLine(true);
-//            holder.listMessage.setSelected(true);
+//            holder.listMessageLeft.setText(message);
+//            holder.listMessageLeft.setEllipsize(TextUtils.TruncateAt.END);
+//            holder.listMessageLeft.setSingleLine(true);
+//            holder.listMessageLeft.setSelected(true);
 //            SpannableString s = new SpannableString(user + message);
 
 //            messageOut.setSpan(bgNumber, 0, message.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -140,20 +138,20 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ItemViewHolder> {
 //                ForegroundColorSpan bgNumber = new ForegroundColorSpan(ContextCompat.getColor(context,R.color.number_bg_bold));
 //                s.setSpan(bgNumber, 0, user.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-//                holder.listMessage.setBackgroundColor(Color.LTGRAY);
+//                holder.listMessageLeft.setBackgroundColor(Color.LTGRAY);
             } else {
 
                 Log.d(TAG, "onBindViewHolder: " + read);
             }
-            holder.listMessage.setText(messageOut);
-            holder.listMessage.setEllipsize(TextUtils.TruncateAt.END);
-            holder.listMessage.setSingleLine(true);
-            holder.listMessage.setSelected(true);
+            holder.listMessageLeft.setText(messageOut);
+            holder.listMessageLeft.setEllipsize(TextUtils.TruncateAt.END);
+            holder.listMessageLeft.setSingleLine(true);
+            holder.listMessageLeft.setSelected(true);
             holder.listNumber.setText(userOut);
             holder.listNumber.setEllipsize(TextUtils.TruncateAt.MARQUEE);
             holder.listNumber.setSingleLine(true);
             holder.listNumber.setSelected(true);
-//            holder.listMessage.setText(s);
+//            holder.listMessageLeft.setText(s);
 
             holder.regularLayout.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -244,7 +242,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ItemViewHolder> {
 
         public LinearLayout regularLayout;
         public LinearLayout swipeLayout;
-        public TextView listNumber, listMessage;
+        public TextView listNumber, listMessageLeft;
         public TextView undo;
 
         public ItemViewHolder(View view) {
@@ -252,7 +250,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ItemViewHolder> {
 
             regularLayout = (LinearLayout) view.findViewById(R.id.regularLayout);
             listNumber = (TextView) view.findViewById(R.id.list_number);
-            listMessage = (TextView) view.findViewById(R.id.list_message);
+            listMessageLeft = (TextView) view.findViewById(R.id.list_message);
             swipeLayout = (LinearLayout) view.findViewById(R.id.swipeLayout);
             undo = (TextView) view.findViewById(R.id.undo);
 

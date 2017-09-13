@@ -6,8 +6,11 @@ import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -45,7 +48,7 @@ public class MasterService extends Service implements Listener {
     private ArrayList<Msg> messages;
     private Constants mConstants;
     final int handlerState = 0;                        //used to identify handler message
-    private Handler bluetoothIn;
+    private static Handler bluetoothIn;
     private int mState = Constants.STATE_NONE;
     private BluetoothAdapter btAdapter = null;
     private SmsListener mSmsListener;
@@ -60,20 +63,15 @@ public class MasterService extends Service implements Listener {
     private int timesRetried = 0;
     private boolean stopThread;
     private boolean isHandlerRunning = false;
-    // SPP UUID service - this should work for most devices
     private static final UUID BTMODULEUUID = UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66");
-    //    private static final UUID BTMODULEUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-    // String for MAC address
-//    private static final String MAC_ADDRESS = "DC:66:72:B7:BB:48";
     private static String MAC_ADDRESS;
     private StringBuilder recDataString = new StringBuilder();
-
+    private BroadcastReceiver intentReceiver;
     @Override
     public void onCreate() {
         super.onCreate();
         Log.d("BT SERVICE", "SERVICE CREATED");
         stopThread = false;
-
     }
 
 
@@ -83,8 +81,7 @@ public class MasterService extends Service implements Listener {
 
             if ("REGISTER_RECEIVER".equals(intent.getAction())) {
                 Log.d("BT SERVICE", "REGISTERING RECEIVER");
-                ResultReceiver receiver = intent.getParcelableExtra("ResultReceiver");
-                mResultReceiver = receiver;
+                mResultReceiver = intent.getParcelableExtra("ResultReceiver");
                 sendResult(mState);
 
             } else if ("UNREGISTER_RECEIVER".equals(intent.getAction())) {
@@ -93,44 +90,27 @@ public class MasterService extends Service implements Listener {
             } else if ("FIRST_START".equals(intent.getAction())) {
 
                 Log.d("BT SERVICE", "SERVICE STARTED");
-                ResultReceiver receiver = intent.getParcelableExtra("ResultReceiver");
-                mResultReceiver = receiver;
+                mResultReceiver = intent.getParcelableExtra("ResultReceiver");
                 MAC_ADDRESS = intent.getExtras().getString("mac_address");
                 sendResult(mState);
                 init();
             }
 
 
-
-
-/*
-
-                BroadcastReceiver intentReceiver = new BroadcastReceiver() {
-                    public void onReceive(Context context, Intent intent) {
-                        String action = intent.getAction();
-                        String name;
-                        BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                        if (device != null) {
-                            name = device.getName();
-                            Log.v(TAG, "Device=" + device.getName());
-                        } else {
-                            name = "None";
-                        }
-
-                        if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
-
-
-//                            if (!isRunning2) {
-//                                Log.v(TAG, "connected: but still running " + device);
-//
-//                            } else {
-                            if (device.equals(MAC_ADDRESS)) {
+            intentReceiver = new BroadcastReceiver() {
+                public void onReceive(Context context, Intent intent) {
+                    String action = intent.getAction();
+                    BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                    if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
+                        if (mState != Constants.STATE_CONNECTING) {
+                            if (device.getAddress().equals(MAC_ADDRESS)) {
                                 Log.d(TAG, "onReceive: MATCHAR");
-//                                checkBTState();
+                                checkBTState();
                             }
-                            Log.v(TAG, "connected: " + device);
+                        }
+                        Log.v(TAG, "connected: " + device);
 //                            }
-                        } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
+                    } /*else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
                             Log.v(TAG, "disconnected: " + device);
                         } else if (BluetoothDevice.ACTION_FOUND.equals(action)) {
 
@@ -139,20 +119,16 @@ public class MasterService extends Service implements Listener {
                             Log.v(TAG, "Discovery started");
                         } else if (btAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
                             Log.v(TAG, "Discovery finished");
-                        }
-                    }
-                };
+                        }*/
+                }
+            };
 
-                IntentFilter intentFilter;
+            IntentFilter intentFilter;
 
-                intentFilter = new IntentFilter();
-                intentFilter.addAction(BluetoothDevice.ACTION_FOUND);
-                intentFilter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
-                intentFilter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
-                intentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
-                intentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-                registerReceiver(intentReceiver, intentFilter);
-*/
+            intentFilter = new IntentFilter();
+            intentFilter.addAction(BluetoothDevice.ACTION_FOUND);
+            intentFilter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
+            registerReceiver(intentReceiver, intentFilter);
 
 
         }
@@ -169,7 +145,6 @@ public class MasterService extends Service implements Listener {
 
         Notification notification = new NotificationCompat.Builder(this, "Android O")
                 .setSmallIcon(R.mipmap.ic_launcher)
-                .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setContentTitle("BT Master")
                 .setContentText("Waiting for stuff to do.")
                 .setContentIntent(pendingIntent).build();
@@ -206,33 +181,15 @@ public class MasterService extends Service implements Listener {
 
     private void doStuff(String inMessage) {
         Log.d(TAG, "doStuff: " + inMessage);
-        if (inMessage.substring(0, 8).equals("(GETCON)")) {
-
-        } else if (inMessage.substring(0, 8).equals("(SNDSMS)")) {
+        if (inMessage.substring(0, 8).equals("(SNDSMS)")) {
             inMessage = inMessage.replaceAll("\\(SNDSMS\\)", "(");
 
             String number = inMessage.substring(inMessage.indexOf("(NUMBER") + 7, inMessage.indexOf("NUMBER)"));
             String message = inMessage.substring(inMessage.indexOf("(MESSAGE") + 8, inMessage.indexOf("MESSAGE)"));
 
             message = message.replaceFirst("\\(NUMBER.*NUMBER\\)", "");
-//            message = message.replaceAll("\\(SNDSMS\\)", "");
             sendSMS(message, number);
         }
-
- /*       else if (inMessage.substring(0, 8).equals("(MRKRED)")) {
-
-            inMessage = inMessage.replaceAll("\\(MRKRED\\)", "");
-            String number = inMessage.substring(inMessage.indexOf("(") + 1, inMessage.indexOf("NUMBER)"));
-            inMessage = inMessage.replaceAll("\\(.*NUMBER\\)", "");
-            String id = inMessage.substring(inMessage.indexOf("(") + 1, inMessage.indexOf("ID)"));
-            inMessage = inMessage.replaceAll("\\(.*ID\\)", "");
-
-            String message = inMessage.substring(inMessage.indexOf("(") + 1, inMessage.indexOf("MESSAGE)"));
-            markMessageRead(number, message, id);
-
-            Log.d(TAG, "doStuff: Kommer hit nummer " + number + " meddelande " + message + " id " + id);
-
-        }*/
     }
 
 
@@ -277,6 +234,7 @@ public class MasterService extends Service implements Listener {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        sendResult(Constants.STATE_NONE);
         doDestroy = true;
 //        bluetoothIn.removeCallbacksAndMessages(null);
         stopThread = true;
@@ -291,6 +249,8 @@ public class MasterService extends Service implements Listener {
         }
         btAdapter = null;
         mSmsListener = null;
+        mResultReceiver = null;
+        unregisterReceiver(intentReceiver);
         Log.d("SERVICE", "onDestroy");
     }
 
@@ -313,35 +273,38 @@ public class MasterService extends Service implements Listener {
 
     //Checks that the Android device Bluetooth is available and prompts to be turned on if off
     private void checkBTState() {
-        if (mConnectedThread != null) {
-            mConnectedThread.closeStreams();
-            mConnectedThread = null;
-        }
-        if (mConnectingThread != null) {
-            mConnectingThread.closeSocket();
-            mConnectingThread = null;
-        }
-        if (btAdapter == null) {
-            Log.d("BT SERVICE", "BLUETOOTH NOT SUPPORTED BY DEVICE, STOPPING SERVICE");
-            stopSelf();
-        } else {
-            if (btAdapter.isEnabled()) {
-                Log.d("DEBUG BT", "BT ENABLED! BT ADDRESS : " + btAdapter.getAddress() + " , BT NAME : " + btAdapter.getName());
-                try {
-                    BluetoothDevice device = btAdapter.getRemoteDevice(MAC_ADDRESS);
-                    Log.d("DEBUG BT", "ATTEMPTING TO CONNECT TO REMOTE DEVICE : " + MAC_ADDRESS);
-                    mConnectingThread = new ConnectingThread(device);
-                    mConnectingThread.start();
-                } catch (IllegalArgumentException e) {
-                    Log.d("DEBUG BT", "PROBLEM WITH MAC ADDRESS : " + e.toString());
-                    Log.d("BT SEVICE", "ILLEGAL MAC ADDRESS, STOPPING SERVICE");
+        if (mState != Constants.STATE_CONNECTED) {
+            if (mConnectedThread != null) {
+                mConnectedThread.closeStreams();
+                mConnectedThread = null;
+            }
+            if (mConnectingThread != null) {
+                mConnectingThread.closeSocket();
+                mConnectingThread = null;
+            }
+            if (btAdapter == null) {
+                Log.d("BT SERVICE", "BLUETOOTH NOT SUPPORTED BY DEVICE, STOPPING SERVICE");
+                stopSelf();
+            } else {
+                if (btAdapter.isEnabled()) {
+                    Log.d("DEBUG BT", "BT ENABLED! BT ADDRESS : " + btAdapter.getAddress() + " , BT NAME : " + btAdapter.getName());
+                    try {
+                        BluetoothDevice device = btAdapter.getRemoteDevice(MAC_ADDRESS);
+                        Log.d("DEBUG BT", "ATTEMPTING TO CONNECT TO REMOTE DEVICE : " + MAC_ADDRESS);
+                        mConnectingThread = new ConnectingThread(device);
+                        mConnectingThread.start();
+                    } catch (IllegalArgumentException e) {
+                        Log.d("DEBUG BT", "PROBLEM WITH MAC ADDRESS : " + e.toString());
+                        Log.d("BT SEVICE", "ILLEGAL MAC ADDRESS, STOPPING SERVICE");
+                        stopSelf();
+                    }
+                } else {
+                    Log.d("BT SERVICE", "BLUETOOTH NOT ON, STOPPING SERVICE");
                     stopSelf();
                 }
-            } else {
-                Log.d("BT SERVICE", "BLUETOOTH NOT ON, STOPPING SERVICE");
-                stopSelf();
             }
         }
+
     }
 
     @Override
@@ -390,8 +353,9 @@ public class MasterService extends Service implements Listener {
 
 
     private void sendMessage() {
-        scanMMS();
+        messages.clear();
         scanSMS();
+        scanMMS();
 
         if (messages.size() > 0) {
             if (!stopThread) {
@@ -479,12 +443,12 @@ public class MasterService extends Service implements Listener {
                 System.out.println("--------------------MMS------------------");
                 Msg msg = new Msg(c.getString(c.getColumnIndex("_id")));
 
-
+                Log.d(TAG, "scanMMS: m TYPE EEEEEEEEEEEEEEEEEEEEEE " + Integer.parseInt(c.getString(c.getColumnIndex("m_type"))));
+                msg.setDirection("1");
                 msg.setType("MMS");
                 msg.setThread(c.getString(c.getColumnIndex("thread_id")));
                 msg.setDate(c.getString(c.getColumnIndex("date")));
                 msg.setRead(c.getString(c.getColumnIndex("read")));
-                Log.d(TAG, "scanMMS: Read? " + msg.getRead());
                 msg.setContact(getContactName(getMmsAddr(msg.getID())));
                 msg.setAddr(getMmsAddr(msg.getID()));
                 parseMMS(msg);
@@ -573,121 +537,81 @@ public class MasterService extends Service implements Listener {
         String[] proj = {"*"};
         ContentResolver cr = getContentResolver();
 
-        Cursor c = cr.query(uri, proj, "read = 0", null, null);
+        Cursor c = cr.query(uri, null, "read = 0", null, null);
 
         ArrayList<String> threads = new ArrayList<>();
+        assert c != null;
+        c.moveToFirst();
 
-        if (c.moveToFirst()) {
+        Log.d(TAG, "scanSMS: " + Arrays.toString(c.getColumnNames()));
+        do {
+            System.out.println("--------------------SMS------------------");
+            if (threads.size() > 0 && threads.contains(c.getString(c.getColumnIndex("thread_id")))) {
+                Log.d(TAG, "scanSMS: ThreadId fanns redan i arrayen ");
 
-            Log.d(TAG, "scanSMS: " + Arrays.toString(c.getColumnNames()));
-            do {
-                System.out.println("--------------------SMS------------------");
-                if (!threads.contains(c.getString(c.getColumnIndex("thread_id")))) {
-                    threads.add(c.getString(c.getColumnIndex("thread_id")));
-                } else {
-                    Log.d(TAG, "scanSMS: ThreadId fanns redan i arrayen ");
-                }
+            } else {
+                Log.d(TAG, "scanSMS: thread id " + c.getString(c.getColumnIndex("thread_id")));
+                threads.add(c.getString(c.getColumnIndex("thread_id")));
 
-                Msg msg = new Msg(c.getString(c.getColumnIndex("_id")));
-                msg.setType("SMS");
-                msg.setDate(c.getString(c.getColumnIndex("date")));
-                msg.setThread(c.getString(c.getColumnIndex("thread_id")));
-                msg.setAddr(c.getString(c.getColumnIndex("Address")));
-                msg.setBody(c.getString(c.getColumnIndex("body")));
-                msg.setDirection(c.getString(c.getColumnIndex("type")));
-                msg.setContact(getContactName(c.getString(c.getColumnIndex("Address"))));
-                msg.setRead(getContactName(c.getString(c.getColumnIndex("read"))));
+            }
 
-            } while (c.moveToNext());
+            Msg msg = new Msg(c.getString(c.getColumnIndex("_id")));
+            msg.setType("SMS");
+            msg.setDate(c.getString(c.getColumnIndex("date")));
+            msg.setThread(c.getString(c.getColumnIndex("thread_id")));
+            msg.setAddr(c.getString(c.getColumnIndex("Address")));
+            msg.setBody(c.getString(c.getColumnIndex("body")));
+            msg.setDirection(c.getString(c.getColumnIndex("type")));
+            msg.setContact(getContactName(c.getString(c.getColumnIndex("Address"))));
+            msg.setRead(getContactName(c.getString(c.getColumnIndex("read"))));
+            messages.add(msg);
+        } while (c.moveToNext());
+        c.close();
 
+        int j = 0;
 
-            int j = 0;
-
-            do {
-                Cursor thread = cr.query(uri, proj, "thread_id = " + threads.get(j), null, null);
-                if (thread.moveToFirst()) {
-                    int k = 0;
-                    do {
-                        boolean finnsEj = false;
-                        Msg msg = new Msg(thread.getString(thread.getColumnIndex("_id")));
-                        msg.setType("SMS");
-                        msg.setDate(thread.getString(thread.getColumnIndex("date")));
-                        msg.setThread(thread.getString(thread.getColumnIndex("thread_id")));
-                        msg.setAddr(thread.getString(thread.getColumnIndex("Address")));
-                        msg.setBody(thread.getString(thread.getColumnIndex("body")));
-                        msg.setDirection(thread.getString(thread.getColumnIndex("type")));
-                        msg.setContact(getContactName(thread.getString(c.getColumnIndex("Address"))));
-                        msg.setRead(getContactName(thread.getString(c.getColumnIndex("read"))));
+        do {
+            Cursor thread = cr.query(uri, proj, "thread_id = " + threads.get(j), null, null);
+            if (thread.moveToFirst()) {
+                int k = 0;
+                do {
+                    Msg msg = new Msg(thread.getString(thread.getColumnIndex("_id")));
+                    msg.setType("SMS");
+                    msg.setDate(thread.getString(thread.getColumnIndex("date")));
+                    msg.setThread(thread.getString(thread.getColumnIndex("thread_id")));
+                    msg.setAddr(thread.getString(thread.getColumnIndex("Address")));
+                    msg.setBody(thread.getString(thread.getColumnIndex("body")));
+                    msg.setDirection(thread.getString(thread.getColumnIndex("type")));
+                    msg.setContact(getContactName(thread.getString(thread.getColumnIndex("Address"))));
+                    msg.setRead(getContactName(thread.getString(thread.getColumnIndex("read"))));
 //                        Log.d(TAG, "scanSMS: Read? " + msg.getRead());
+                    boolean finnsEj = false;
 
-                        for (int l = 0; l < messages.size(); l++) {
-                            if (msg.equals(messages.get(l))) {
-                                Log.d(TAG, "scanSMS: Meddelandet fanns redan");
-                                break;
-                            } else {
-                                finnsEj = true;
-
-                                Log.d(TAG, "scanSMS: Meddelandet tillagt i messages Array");
-                                Log.d(TAG, "scanSMS: I storlek " + j + " " + k + " " + messages.size());
-                            }
-
-                        }
-                        if (finnsEj){
-                            messages.add(msg);
+                    for (int l = 0; l < messages.size(); l++) {
+                        finnsEj = true;
+                        if (msg.equals(messages.get(l))) {
+                            finnsEj = false;
+                            Log.d(TAG, "scanSMS: Meddelandet fanns redan");
+                            break;
                         }
 
-                        k++;
+                    }
+
+                    if (finnsEj) {
+                        messages.add(msg);
+                        Log.d(TAG, "scanSMS: Meddelandet tillagt i messages Array");
+                    }
+                    k++;
 
 
-                    } while (thread.moveToNext() && k < 10);
-                }
+                } while (thread.moveToNext() && k < 10);
+            }
 
 
-                j++;
-                thread.close();
+            j++;
+            thread.close();
 
-            } while (j < threads.size());
-
-
-        }
-        c.close();
-
-/*
-
-
-
-        Cursor c = cr.query(uri, proj, "thread ", null, null);
-
-
-
-
-        if (c.moveToFirst()) {
-            do {
-                String[] col = c.getColumnNames();
-                String str = "";
-                for (int i = 0; i < col.length; i++) {
-                    str = str + col[i] + ": " + c.getString(i) + ", ";
-                }
-                //System.out.println(str);
-
-                System.out.println("--------------------SMS------------------");
-
-                Msg msg = new Msg(c.getString(c.getColumnIndex("_id")));
-                msg.setType("SMS");
-                msg.setDate(c.getString(c.getColumnIndex("date")));
-                msg.setAddr(c.getString(c.getColumnIndex("Address")));
-                msg.setBody(c.getString(c.getColumnIndex("body")));
-                msg.setDirection(c.getString(c.getColumnIndex("type")));
-                msg.setContact(getContactName(c.getString(c.getColumnIndex("Address"))));
-//                System.out.println(msg);
-                messages.add(msg);
-
-            } while (c.moveToNext());
-        }
-        c.close();
-
-
-*/
+        } while (j < threads.size());
 
 
     }
@@ -983,6 +907,5 @@ public class MasterService extends Service implements Listener {
             }
         }
     }
-
 
 }

@@ -68,10 +68,7 @@ public class Msg {
         }
     }
     public void setDirection(String d) {
-        if ("1".equals(d))
-            direction = "FROM: ";
-        else
-            direction = "TO: ";
+        direction = d;
 
     }
     public void setBody(String b) {

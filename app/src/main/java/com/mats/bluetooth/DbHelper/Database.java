@@ -108,8 +108,8 @@ public class Database extends SQLiteOpenHelper {
 
     public Cursor getFirstThreadMsg() {
         SQLiteDatabase db = this.getWritableDatabase();
-        String select1 = String.format("SELECT %s, %s, max(%s) from %s WHERE %s = 0 GROUP BY %s;",
-                KEY_THREAD, KEY_DIRECTION, KEY_TIME, SMS_TABLE, KEY_READ, KEY_THREAD);
+        String select1 = String.format("SELECT %s, %s, max(%s) from %s WHERE %s = 0 AND %s == 1 GROUP BY %s;",
+                KEY_THREAD, KEY_DIRECTION, KEY_TIME, SMS_TABLE, KEY_READ, KEY_DIRECTION, KEY_THREAD);
         Cursor cursor = db.rawQuery(select1, null);
         if (cursor.moveToFirst()) {
             String[] thread = new String[cursor.getCount() - 1];
@@ -127,8 +127,8 @@ public class Database extends SQLiteOpenHelper {
             String allThread = TextUtils.join(", ", thread);
             String allDirection = TextUtils.join(", ", direction);
             Log.d(TAG, "getFirstThreadMsg: " + allTime);
-            String select = String.format("SELECT * FROM %s WHERE %s IN (%s) AND %s IN (%s) AND %s IN (%s) ORDER BY %s DESC;",
-                    SMS_TABLE, KEY_TIME, allTime, KEY_THREAD, allThread, KEY_DIRECTION, allDirection, KEY_TIME);
+            String select = String.format("SELECT * FROM %s WHERE %s IN (%s) AND %s IN (%s) AND %s == 1 ORDER BY %s DESC;",
+                    SMS_TABLE, KEY_TIME, allTime, KEY_THREAD, allThread, KEY_DIRECTION, KEY_TIME);
             return db.rawQuery(select, null);
 
         } else return null;

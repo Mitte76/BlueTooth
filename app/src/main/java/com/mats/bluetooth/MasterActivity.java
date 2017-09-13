@@ -170,6 +170,7 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
 //            mBound = false;
 //            Log.d(TAG, "onDestroy: ");
 //        }
+
         if (isMyServiceRunning()) {
             Intent i = new Intent(this, MasterService.class);
             i.setAction("UNREGISTER_RECEIVER");

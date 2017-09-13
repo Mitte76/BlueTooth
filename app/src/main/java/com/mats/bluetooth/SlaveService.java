@@ -50,6 +50,7 @@ public class SlaveService extends Service {
         Log.d("BT SERVICE", "SERVICE CREATED");
         stopThread = false;
         btAdapter = BluetoothAdapter.getDefaultAdapter();       // get Bluetooth adapter
+        dbHelper = Database.getInstance(getApplicationContext());
 
     }
 
@@ -143,7 +144,6 @@ public class SlaveService extends Service {
         };
 */
         startListening();
-        dbHelper = Database.getInstance(getApplicationContext());
 
 
     }
@@ -162,9 +162,11 @@ public class SlaveService extends Service {
             List<String> stuff = new ArrayList<>(Arrays.asList(fullString.split(Constants.DELIMITER_STRING)));
             if (stuff.size() > 0) {
                 int i = 0;
+                Log.d(TAG, "assembleBTMessage: Antal mottagna = " + stuff.size());
+
                 do {
                     sortMessage(stuff.get(i));
-                    Log.d(TAG, "assembleBTMessage: Innehåller stopstring. Början på paketen = " + stuff.get(i));
+                    Log.d(TAG, "assembleBTMessage: Början på paketen = " + stuff.get(i));
 
                     i++;
                 } while (i < stuff.size());

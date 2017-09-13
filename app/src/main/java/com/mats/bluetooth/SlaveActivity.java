@@ -147,7 +147,6 @@ public class SlaveActivity extends AppCompatActivity {
 
     @Override
     protected void onStart() {
-        messagesTxt.setText(String.valueOf(dbHelper.getSMS().getCount()));
 
         init();
         Log.d(TAG, "onStart: DEN HAR STARTAT IGEN");

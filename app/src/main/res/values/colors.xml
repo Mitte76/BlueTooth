@@ -11,7 +11,8 @@
     <color name="greenBg">#71a903</color>
     <color name="number_bg">#71a903</color>
     <color name="toolbar">#5e95c4</color>
-    <color name="row_bg">#c9cac7</color>
+    <color name="bg_owner_layout">#b6d3ec</color>
+    <color name="row_bg">#eeefec</color>
 
 
 
