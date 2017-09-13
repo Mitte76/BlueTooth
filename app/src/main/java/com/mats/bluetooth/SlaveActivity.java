@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -17,6 +18,7 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -26,7 +28,7 @@ import com.mats.bluetooth.DbHelper.Database;
 
 public class SlaveActivity extends AppCompatActivity {
     private Database dbHelper;
-    private TextView toolbarText;
+    private TextView toolbarText, messagesTxt;
     private ImageView toolbarStatusImg;
     private static final String TAG = "SmsActivity";
 
@@ -37,8 +39,9 @@ public class SlaveActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.slave_activity);
-        dbHelper = Database.getInstance(getApplicationContext());
+        setContentView(R.layout.slave_main_window);
+        this.registerReceiver(this.mBatInfoReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+
         Toolbar toolbar = findViewById(R.id.toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayShowTitleEnabled(false);
@@ -46,11 +49,20 @@ public class SlaveActivity extends AppCompatActivity {
         toolbarText = findViewById(R.id.batteryText);
         toolbarStatusImg = findViewById(R.id.toolbarServiceStatus);
         setSupportActionBar(toolbar);
+
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        this.registerReceiver(this.mBatInfoReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-
-
-//        sharedpreferences = getSharedPreferences(MYPREFERENCES, Context.MODE_PRIVATE);
+        if (mBluetoothAdapter == null) {
+            Toast.makeText(this, R.string.bt_not_running, Toast.LENGTH_LONG).show();
+            this.finish();
+        } else {
+            if (!mBluetoothAdapter.isEnabled()) {
+                Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
+            } else {
+                init();
+                Log.d(TAG, "onCreate: INIT");
+            }
+        }
 
         if (isMyServiceRunning()) {
             Intent service = new Intent(getApplicationContext(), SlaveService.class);
@@ -64,23 +76,13 @@ public class SlaveActivity extends AppCompatActivity {
             Log.d(TAG, "onCreate: NOT Running");
         }
 
-        if (mBluetoothAdapter == null) {
-            Toast.makeText(this, R.string.bt_not_running, Toast.LENGTH_LONG).show();
-            this.finish();
-        } else {
-            if (!mBluetoothAdapter.isEnabled()) {
-                Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
-            } else {
-                init();
-                Log.d(TAG, "onCreate: INIT");
-            }
-        }
-    }
-
-    private void redrawScreen(Bitmap bitmap) {
 
     }
+
+    private void redrawScreen() {
+
+    }
+
 
     private BroadcastReceiver mBatInfoReceiver = new BroadcastReceiver() {
         @Override
@@ -143,6 +145,14 @@ public class SlaveActivity extends AppCompatActivity {
 
     }
 
+    @Override
+    protected void onStart() {
+        messagesTxt.setText(String.valueOf(dbHelper.getSMS().getCount()));
+
+        init();
+        Log.d(TAG, "onStart: DEN HAR STARTAT IGEN");
+        super.onStart();
+    }
 
     private boolean isMyServiceRunning() {
         ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
@@ -204,15 +214,29 @@ public class SlaveActivity extends AppCompatActivity {
     }
 
     private void init() {
+        if (!isMyServiceRunning()){
+            toolbarStatusImg.setImageResource(R.drawable.red_status);
+        }
+        dbHelper = Database.getInstance(getApplicationContext());
+        ImageView messagesImg = findViewById(R.id.slave_main_messageImageView);
+        messagesTxt = findViewById(R.id.slave_main_messageTextView);
 
+        messagesTxt.setText(String.valueOf(dbHelper.getSMS().getCount()));
+        if (dbHelper.getFirstThreadMsg() != null){
+            messagesImg.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    slaveIntent();
+                }
+            });
+        }
 
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
-        Bundle extras = intent.getExtras();
         if ("REFRESH".equals(intent.getAction())) {
-            redrawScreen(null);
+            init();
             Log.d(TAG, "onCreate: REFRESH");
         } else {
             Log.d(TAG, "init: WTF!" + getIntent().getAction());
@@ -226,6 +250,8 @@ public class SlaveActivity extends AppCompatActivity {
                 if (resultCode == Activity.RESULT_OK) {
                     Toast.makeText(this, R.string.bt_enabled,
                             Toast.LENGTH_SHORT).show();
+                    init();
+
                 } else {
                     Toast.makeText(this, R.string.bt_not_enabled,
                             Toast.LENGTH_SHORT).show();
@@ -235,5 +261,8 @@ public class SlaveActivity extends AppCompatActivity {
         }
     }
 
-
+    private void slaveIntent(){
+        Intent slaveIntent = new Intent(this, SmsActivity.class);
+        startActivity(slaveIntent);
+    }
 }

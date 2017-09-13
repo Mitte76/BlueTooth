@@ -11,6 +11,8 @@
     app:contentInsetStart="16dp"
     app:contentInsetRight="16dp"
     app:contentInsetEnd="16dp"
+    android:background="@color/toolbar"
+
     >
 
     <LinearLayout
@@ -31,7 +33,7 @@
                 android:id="@+id/toolbarServiceStatus"
                 android:layout_width="30dp"
                 android:layout_height="30dp"
-                app:srcCompat="@drawable/red_status" />
+                />
         </LinearLayout>
 
         <LinearLayout

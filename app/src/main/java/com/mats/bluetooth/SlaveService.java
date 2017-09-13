@@ -1,5 +1,6 @@
 package com.mats.bluetooth;
 
+import android.app.ActivityManager;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
@@ -8,7 +9,6 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
@@ -156,7 +156,8 @@ public class SlaveService extends Service {
 
         fullString = fullString + message;
 
-        if (fullString.contains(Constants.STOP_STRING)) {
+        if (fullString.contains(Constants.START_STRING) && fullString.contains(Constants.STOP_STRING)) {
+            dbHelper.prepareSms();
             fullString = fullString.replace(Constants.START_STRING, "");
             List<String> stuff = new ArrayList<>(Arrays.asList(fullString.split(Constants.DELIMITER_STRING)));
             if (stuff.size() > 0) {
@@ -169,6 +170,7 @@ public class SlaveService extends Service {
                 } while (i < stuff.size());
             }
             fullString = "";
+            dbHelper.deleteSms();
         }
 
 
@@ -362,25 +364,42 @@ public class SlaveService extends Service {
 
             String thread = inMessage.substring(inMessage.indexOf(Constants.THREAD_START) + Constants.THREAD_START.length(), inMessage.indexOf(Constants.THREAD_STOP));
 
+            String direction = inMessage.substring(inMessage.indexOf(Constants.DIRECTION_START) + Constants.DIRECTION_START.length(), inMessage.indexOf(Constants.DIRECTION_STOP));
+
+
             if (inMessage.contains(Constants.IMAGE_STOP)) {
                 Log.d(TAG, "sortMessage: " + inMessage.substring(inMessage.indexOf(Constants.IMAGE_STOP) - 50, inMessage.indexOf(Constants.IMAGE_STOP)));
                 String image = inMessage.substring(inMessage.indexOf(Constants.IMAGE_START) + Constants.IMAGE_START.length(), inMessage.indexOf(Constants.IMAGE_STOP));
                 Log.d(TAG, "sortMessage: Bild medskickad" + image.length());
                 Log.d(TAG, "sortMessage: ID " + id);
-                dbHelper.addSMS(name, number, message, date, id, read, thread,image);
+                dbHelper.addSMS(name, number, message, date, id, read, thread, direction, image);
             } else {
-                dbHelper.addSMS(name, number, message, date, id, read, thread);
+                dbHelper.addSMS(name, number, message, date, id, read, thread, direction);
 
             }
 
-            Intent intent = new Intent(getApplicationContext(), SmsActivity.class);
+            Intent intent = new Intent(getApplicationContext(), SlaveActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             intent.setAction("REFRESH");
-
             startActivity(intent);
         }
 
     }
+
+    private boolean isMyServiceRunning() {
+        ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if ("com.mats.bluetooth.SlaveService".equals(service.service.getClassName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+
+
+
 
     private void startListening() {
 

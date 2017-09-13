@@ -22,6 +22,10 @@ public class Msg {
     private Bitmap img;
     private String type;
 
+    public String getDirection() {
+        return direction;
+    }
+
     public String getRead() {
         return read;
     }

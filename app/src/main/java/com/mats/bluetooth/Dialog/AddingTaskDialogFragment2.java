@@ -8,8 +8,10 @@ import android.graphics.Point;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.DialogFragment;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.helper.ItemTouchHelper;
 import android.util.Base64;
 import android.util.Log;
 import android.view.Display;
@@ -27,9 +29,8 @@ import android.widget.Toast;
 
 import com.mats.bluetooth.Adapter.RVAdapter2;
 import com.mats.bluetooth.DbHelper.Database;
+import com.mats.bluetooth.Helper.SwipeUtil;
 import com.mats.bluetooth.R;
-
-import java.util.Objects;
 
 
 public class AddingTaskDialogFragment2 extends DialogFragment {
@@ -43,8 +44,7 @@ public class AddingTaskDialogFragment2 extends DialogFragment {
     private String number, user, message, id, thread;
     private Database dbHelper;
     private EditText editTextMessage;
-    private TextView inMessage;
-    private ImageView imageView;
+    //    private TextView inMessage;
     private Button sendButton/*, markReadButton*/;
     private ReplyMessageListener mReplyMessageListener;
     private RVAdapter2 rvAdapter;
@@ -85,12 +85,11 @@ public class AddingTaskDialogFragment2 extends DialogFragment {
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        getDialog().setCanceledOnTouchOutside(true);
-        getDialog().getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+//        getDialog().setCanceledOnTouchOutside(true);
+//        getDialog().getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+        getDialog().getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
+
         View v = inflater.inflate(R.layout.dialog_task2, container, false);
-        inMessage = v.findViewById(R.id.inMessage);
-        imageView = v.findViewById(R.id.imageView);
-        TextView inNumber = v.findViewById(R.id.inNumber);
         sendButton = v.findViewById(R.id.dialogSendBtn);
 //        markReadButton = v.findViewById(R.id.dialogMarkRead);
         editTextMessage = v.findViewById(R.id.dialogSendMessage);
@@ -99,17 +98,18 @@ public class AddingTaskDialogFragment2 extends DialogFragment {
 
         mRecyclerview.setLayoutManager(new LinearLayoutManager(getActivity()));
 
-        inMessage.setText(message);
 //        inNumber.setText(user);
 
         rvAdapter = new RVAdapter2(dbHelper.getSMS2(thread));
+        mRecyclerview.scrollToPosition(rvAdapter.getItemCount() - 1);
         mRecyclerview.setAdapter(rvAdapter);
         Cursor cursor = dbHelper.getOneSMS(id);
         cursor.moveToFirst();
-        Log.d(TAG, "onCreateView: " + id + " Cursor size " + cursor.getCount());
+/*        Log.d(TAG, "onCreateView: " + id + " Cursor size " + cursor.getCount());
         String image = cursor.getString(cursor.getColumnIndex(Database.KEY_IMAGE));
+        setSwipeForRecyclerView();
         if (image != null) {
-        Bitmap bitmap;
+            Bitmap bitmap;
 //        try {
             byte[] encodeByte = Base64.decode(image, Base64.DEFAULT);
             bitmap = BitmapFactory.decodeByteArray(encodeByte, 0, encodeByte.length);
@@ -123,13 +123,7 @@ public class AddingTaskDialogFragment2 extends DialogFragment {
             imageView.getLayoutParams().height = nh;
             imageView.setImageBitmap(bitmap);
             Log.d(TAG, "onCreateView: Image size " + image.length());
-
-//        } catch (Exception e) {
-//            e.getMessage();
-//        }
-
-
-        }
+        }*/
 
 
         sendButton.setOnClickListener(new View.OnClickListener() {
@@ -275,6 +269,39 @@ public class AddingTaskDialogFragment2 extends DialogFragment {
             return true;
         }
     };
+
+
+    private void setSwipeForRecyclerView() {
+
+        SwipeUtil swipeHelper = new SwipeUtil(0, ItemTouchHelper.LEFT, getContext()) {
+            @Override
+            public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
+                int swipedPosition = viewHolder.getAdapterPosition();
+                RVAdapter2 adapter = (RVAdapter2) mRecyclerview.getAdapter();
+                adapter.pendingRemoval(swipedPosition);
+            }
+
+            @Override
+            public int getSwipeDirs(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
+                int position = viewHolder.getAdapterPosition();
+                RVAdapter2 adapter = (RVAdapter2) mRecyclerview.getAdapter();
+                if (adapter.isPendingRemoval(position)) {
+                    return 0;
+                }
+                return super.getSwipeDirs(recyclerView, viewHolder);
+            }
+        };
+
+        ItemTouchHelper mItemTouchHelper = new ItemTouchHelper(swipeHelper);
+        mItemTouchHelper.attachToRecyclerView(mRecyclerview);
+
+
+        //set swipe label
+        swipeHelper.setLeftSwipeLable("");
+        //set swipe background-Color
+        swipeHelper.setLeftcolorCode(ContextCompat.getColor(getContext(), R.color.red));
+
+    }
 //    @Override
 //    public void onAddItemFromDialog(String item,String category) {
 //        Log.d("TAG", "onAddItemFromDialog: hvhjvjh" + category);

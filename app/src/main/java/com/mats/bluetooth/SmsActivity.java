@@ -8,9 +8,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.database.Cursor;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Point;
 import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -22,7 +19,6 @@ import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.support.v7.widget.helper.ItemTouchHelper;
 import android.util.Log;
-import android.view.Display;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ArrayAdapter;
@@ -37,7 +33,6 @@ import com.mats.bluetooth.Dialog.AddingTaskDialogFragment2;
 import com.mats.bluetooth.Helper.SwipeUtil;
 
 import java.util.ArrayList;
-import java.util.List;
 
 
 public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFragment2.ReplyMessageListener {
@@ -62,7 +57,7 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.slave_activity);
+        setContentView(R.layout.sms_activity);
         dbHelper = Database.getInstance(getApplicationContext());
         Toolbar toolbar = findViewById(R.id.toolbar);
         toolbarText = findViewById(R.id.batteryText);
@@ -87,6 +82,7 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
 
             Log.d(TAG, "onCreate: Running");
         } else {
+            toolbarStatusImg.setImageResource(R.drawable.red_status);
             Log.d(TAG, "onCreate: NOT Running");
         }
 
@@ -128,7 +124,7 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
                     Log.d(TAG, "onReceiveResult: ");
                     break;
                 case Constants.STATE_LISTEN:
-                    toolbarStatusImg.setImageResource(R.drawable.blue_status);
+                    toolbarStatusImg.setImageResource(R.drawable.orange_status);
 
                     Log.d(TAG, "onReceiveResult: ");
                     break;
@@ -152,7 +148,7 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
         }
     };
 
-    private void redrawScreen(Bitmap bitmap) {
+    private void redrawScreen() {
 //        Cursor cursor = dbHelper.getSMS();
 //        List<String> dataList = new ArrayList<>();
 //
@@ -160,32 +156,14 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
 //            // The Cursor is now set to the right position
 //            dataList.add(cursor.getString(cursor.getColumnIndex(Database.KEY_MESSAGE)));
 //        }
-        RVAdapter rvAdapter = new RVAdapter(dbHelper.getSMS());
-        if (mRecyclerView == null){
+        RVAdapter rvAdapter = new RVAdapter(dbHelper.getFirstThreadMsg());
+        if (mRecyclerView == null) {
             mRecyclerView = findViewById(R.id.recyclerView);
             mRecyclerView.setAdapter(rvAdapter);
         } else {
             mRecyclerView.setAdapter(rvAdapter);
         }
 
-        if (bitmap != null){
-            Point size = new Point();
-            Display display = getWindowManager().getDefaultDisplay();
-            display.getSize(size);
-            int width = size.x / 2;
-
-            int nh = (int) ( bitmap.getHeight() * ((double) width / bitmap.getWidth()) );
-//            Bitmap scaled = Bitmap.createScaledBitmap(bitmap, 300, nh, true);
-//            mImageView.setMaxWidth(50);
-
-            mImageView.getLayoutParams().width = width;
-            mImageView.getLayoutParams().height = nh;
-            mImageView.setImageBitmap(bitmap);
-            Log.d(TAG, "redrawScreen: Kommer jag hit Bitmap");
-
-        }else {
-            Log.d(TAG, "redrawScreen: Nåt fel Bitmap ");
-        }
 
         setSwipeForRecyclerView();
 
@@ -325,9 +303,9 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
             }
             case R.id.undelete: {
                 dbHelper.markSmsUnDeleted();
-                Cursor log = dbHelper.getSMSLog();
-                Log.d(TAG, "onOptionsItemSelected: " + log.getCount());
-                redrawScreen(null);
+//                Cursor log = dbHelper.getSMSLog();
+//                Log.d(TAG, "onOptionsItemSelected: " + log.getCount());
+                redrawScreen();
                 return true;
             }
         }
@@ -344,30 +322,13 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
         LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
         linearLayoutManager.setOrientation(LinearLayoutManager.VERTICAL);
         mRecyclerView.setLayoutManager(linearLayoutManager);
-        if (isMyServiceRunning()){
-            redrawScreen(null);
-        }
+        redrawScreen();
 
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
-        Bundle extras = intent.getExtras();
-        if ("REFRESH".equals(intent.getAction())) {
-            if (intent.getByteArrayExtra("byteArray") != null){
-                Bitmap bitmap = BitmapFactory.decodeByteArray(
-                        intent.getByteArrayExtra("byteArray"),0,intent.getByteArrayExtra("byteArray").length);
-                redrawScreen(bitmap);
-                Log.d(TAG, "onNewIntent: Här?");
-            } else {
-                redrawScreen(null);
-
-            }
-
-            Log.d(TAG, "onCreate: REFRESH");
-        } else {
-            Log.d(TAG, "init: WTF!" + getIntent().getAction());
-        }
+        redrawScreen();
     }
 
     public void onActivityResult(int requestCode, int resultCode, Intent data) {

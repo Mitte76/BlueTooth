@@ -262,7 +262,6 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
         infoText = (TextView) findViewById(R.id.info);
 
         if (isMyServiceRunning()) {
-
             Intent service = new Intent(getApplicationContext(), MasterService.class);
             service.setAction("REGISTER_RECEIVER");
             service.putExtra("ResultReceiver", mResultReceiver);
@@ -271,6 +270,8 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
 
             Log.d(TAG, "onCreate: Running");
         } else {
+            toolbarStatusImg.setImageResource(R.drawable.red_status);
+
             Log.d(TAG, "onCreate: NOT Running");
 
         }

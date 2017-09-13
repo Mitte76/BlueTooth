@@ -7,7 +7,10 @@ import android.database.SQLException;
 import android.database.sqlite.SQLiteConstraintException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.text.TextUtils;
 import android.util.Log;
+
+import java.util.Arrays;
 
 
 public class Database extends SQLiteOpenHelper {
@@ -27,6 +30,7 @@ public class Database extends SQLiteOpenHelper {
     public static final String KEY_REMOTE_ID = "remote_id";
     public static final String KEY_TIME = "time";
     public static final String KEY_IMAGE = "image";
+    public static final String KEY_DIRECTION = "direction";
     public static final String KEY_DELETED_LOCAL = "deleted_local";
     public static final String KEY_DELETED_EXTERNAL = "deleted_external";
 
@@ -38,8 +42,8 @@ public class Database extends SQLiteOpenHelper {
             + KEY_NAME + " TEXT," + KEY_MESSAGE + " TEXT," + KEY_TIME + " TEXT unique,"
             + KEY_REMOTE_ID + " TEXT unique," + KEY_READ + " TEXT, "
             + KEY_THREAD + " TEXT, " + KEY_DELETED_LOCAL + " TEXT, "
-            + KEY_IMAGE + " TEXT, " + KEY_DELETED_EXTERNAL + " TEXT " + ")";
-//            + KEY_NAME + " TEXT unique," + KEY_MESSAGE + " TEXT," + KEY_READ + " TEXT" + ")";
+            + KEY_IMAGE + " TEXT, " + KEY_DIRECTION + " TEXT, "
+            + KEY_DELETED_EXTERNAL + " TEXT " + ")";
 
 
     private Database(Context ctx) {
@@ -87,24 +91,50 @@ public class Database extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
         String selectQuery = "SELECT  * FROM " + SMS_TABLE + " WHERE " + KEY_DELETED_LOCAL + " != 1 AND " + KEY_READ + " == 0 ORDER BY " + KEY_TIME + " DESC";
         Cursor cursor = db.rawQuery(selectQuery, null);
-        cursor.moveToFirst();
+//        cursor.moveToFirst();
         Log.d(TAG, "getSMS: " + cursor.getCount());
         return cursor;
     }
+
     public Cursor getSMS2(String id) {
         SQLiteDatabase db = this.getWritableDatabase();
 
-//        String selectQuery = "SELECT  * FROM " + SMS_TABLE + " WHERE " + KEY_MESSAGE
-//                + " = " + message + " AND ";
-
-//        DatabaseUtils.stringForQuery()
-
         String select = String.format("SELECT * FROM %s WHERE %s = '%s' ORDER BY %s ASC;",
-                SMS_TABLE, KEY_THREAD, id , KEY_TIME);
-        Cursor c = db.rawQuery(select,null);
+                SMS_TABLE, KEY_THREAD, id, KEY_TIME);
+        Cursor c = db.rawQuery(select, null);
 
         return c;
     }
+
+    public Cursor getFirstThreadMsg() {
+        SQLiteDatabase db = this.getWritableDatabase();
+        String select1 = String.format("SELECT %s, %s, max(%s) from %s WHERE %s = 0 GROUP BY %s;",
+                KEY_THREAD, KEY_DIRECTION, KEY_TIME, SMS_TABLE, KEY_READ, KEY_THREAD);
+        Cursor cursor = db.rawQuery(select1, null);
+        if (cursor.moveToFirst()) {
+            String[] thread = new String[cursor.getCount() - 1];
+            String[] time = new String[cursor.getCount() - 1];
+            String[] direction = new String[cursor.getCount() - 1];
+            int i = 0;
+            while (cursor.moveToNext()) {
+                thread[i] = cursor.getString(0);
+                direction[i] = cursor.getString(1);
+                time[i] = cursor.getString(2);
+                i++;
+            }
+            cursor.close();
+            String allTime = TextUtils.join(", ", time);
+            String allThread = TextUtils.join(", ", thread);
+            String allDirection = TextUtils.join(", ", direction);
+            Log.d(TAG, "getFirstThreadMsg: " + allTime);
+            String select = String.format("SELECT * FROM %s WHERE %s IN (%s) AND %s IN (%s) AND %s IN (%s) ORDER BY %s DESC;",
+                    SMS_TABLE, KEY_TIME, allTime, KEY_THREAD, allThread, KEY_DIRECTION, allDirection, KEY_TIME);
+            return db.rawQuery(select, null);
+
+        } else return null;
+    }
+
+
     public Cursor getSMSLog() {
         SQLiteDatabase db = this.getWritableDatabase();
         String selectQuery = "SELECT  * FROM " + SMS_TABLE + " ORDER BY " + KEY_TIME + " DESC";
@@ -119,7 +149,7 @@ public class Database extends SQLiteOpenHelper {
                 SMS_TABLE, KEY_DELETED_EXTERNAL));
     }
 
-    public void addSMS(String name, String number, String message, String time, String remoteId, String read, String thread) {
+    public void addSMS(String name, String number, String message, String time, String remoteId, String read, String thread, String direction) {
         Long test = null;
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -132,30 +162,25 @@ public class Database extends SQLiteOpenHelper {
         values.put(KEY_DELETED_LOCAL, 0);
         values.put(KEY_DELETED_EXTERNAL, 0);
         values.put(KEY_REMOTE_ID, remoteId);
-        values.put(KEY_REMOTE_ID, remoteId);
+        values.put(KEY_DIRECTION, direction);
         try {
             test = db.insertWithOnConflict(SMS_TABLE, null, values, SQLiteDatabase.CONFLICT_ROLLBACK);
-        } catch(SQLException e) {
+        } catch (SQLException e) {
 
-            if (e instanceof SQLiteConstraintException){
+            if (e instanceof SQLiteConstraintException) {
                 Log.d(TAG, "addSMS: japp" + test);
 
                 try {
                     db.execSQL(String.format("UPDATE %s SET %s = 0 WHERE %s = %s;",
                             SMS_TABLE, KEY_DELETED_EXTERNAL, KEY_TIME, time));
 
-                } catch(SQLException f) {
-//                    Log.d(TAG, "addSMS 2: " + f);
-
+                } catch (SQLException f) {
                 }
-
-
             }
-
         }
     }
 
-    public void addSMS(String name, String number, String message, String time, String remoteId, String read, String thread, String image) {
+    public void addSMS(String name, String number, String message, String time, String remoteId, String read, String thread, String direction, String image) {
         Long test = null;
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -168,19 +193,20 @@ public class Database extends SQLiteOpenHelper {
         values.put(KEY_DELETED_LOCAL, 0);
         values.put(KEY_DELETED_EXTERNAL, 0);
         values.put(KEY_REMOTE_ID, remoteId);
+        values.put(KEY_DIRECTION, direction);
         values.put(KEY_IMAGE, image);
         try {
             test = db.insertWithOnConflict(SMS_TABLE, null, values, SQLiteDatabase.CONFLICT_ROLLBACK);
-        } catch(SQLException e) {
+        } catch (SQLException e) {
 
-            if (e instanceof SQLiteConstraintException){
+            if (e instanceof SQLiteConstraintException) {
 //                Log.d(TAG, "addSMS: japp" + test);
 
                 try {
                     db.execSQL(String.format("UPDATE %s SET %s = 0 WHERE %s = %s;",
                             SMS_TABLE, KEY_DELETED_EXTERNAL, KEY_TIME, time));
 
-                } catch(SQLException f) {
+                } catch (SQLException f) {
 //                    Log.d(TAG, "addSMS 2: " + f);
 
                 }
@@ -192,52 +218,24 @@ public class Database extends SQLiteOpenHelper {
     }
 
 
-
-    public void clearSMS() {
+    public Cursor getOneSMS(String id) {
         SQLiteDatabase db = this.getWritableDatabase();
-        db.delete(SMS_TABLE,null,null);
-
-//        return db.insert(SMS_TABLE, null, values);
-    }
-
-    public Cursor getOneSMS(String id){
-        SQLiteDatabase db = this.getWritableDatabase();
-
-//        String selectQuery = "SELECT  * FROM " + SMS_TABLE + " WHERE " + KEY_MESSAGE
-//                + " = " + message + " AND ";
-
-//        DatabaseUtils.stringForQuery()
-
         String select = String.format("SELECT * FROM %s WHERE %s = '%s';",
                 SMS_TABLE, KEY_REMOTE_ID, id);
-        Cursor c = db.rawQuery(select,null);
+        Cursor c = db.rawQuery(select, null);
 
         return c;
-    }
-
-    public void deleteSms(String id) {
-        SQLiteDatabase db = this.getWritableDatabase();
-
-        db.delete(SMS_TABLE, KEY_ID + " = " + id, null);
-
-//        return db.insert(SMS_TABLE, null, values);
     }
 
     public void deleteSms() {
         SQLiteDatabase db = this.getWritableDatabase();
         Log.d(TAG, "deleteSms: Deleting");
-        db.delete(SMS_TABLE, KEY_DELETED_EXTERNAL + " = 1" , null);
+        db.delete(SMS_TABLE, KEY_DELETED_EXTERNAL + " = 1", null);
 
-//        return db.insert(SMS_TABLE, null, values);
     }
 
     public void markSmsDeleted(String id) {
         SQLiteDatabase db = this.getWritableDatabase();
-//        ContentValues values = new ContentValues();
-//        values.put(KEY_DELETED_LOCAL, 0);
-//        db.update(SMS_TABLE, values, KEY_ID + " = " + id, null);
-
-
         db.execSQL(String.format("UPDATE %s SET %s = 1 WHERE %s = '%s';",
                 SMS_TABLE, KEY_DELETED_LOCAL, KEY_REMOTE_ID, id));
 
@@ -246,32 +244,11 @@ public class Database extends SQLiteOpenHelper {
 
     public void markSmsUnDeleted() {
         SQLiteDatabase db = this.getWritableDatabase();
-//        ContentValues values = new ContentValues();
-//        values.put(KEY_DELETED_LOCAL, 0);
-//        db.update(SMS_TABLE, values, KEY_ID + " = " + id, null);
-
-
         db.execSQL(String.format("UPDATE %s SET %s = 0;",
                 SMS_TABLE, KEY_DELETED_LOCAL));
 
 
     }
-
-/*
-    public long createList(String list) {
-        ContentValues values = new ContentValues();
-        values.put(KEY_LIST_NAME, list);
-        values.put(DATE_CREATED, currentTime);
-
-        long tag_id = db.insert(LIST_TABLE, null, values);
-        values.clear();
-
-
-        values.put(KEY_LIST_SORTID, getMaxId());
-        values.put(DELETED, 0);
-        values.put(DATE_SYNCED, 0);
-        return currentTime;
-    }*/
 
 }
 

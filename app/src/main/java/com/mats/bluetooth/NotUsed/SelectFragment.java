@@ -67,7 +67,7 @@
 //    @Override
 //    public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
 //                             @Nullable Bundle savedInstanceState) {
-//        return inflater.inflate(R.layout.fragment_select, container, false);
+//        return inflater.inflate(R.layout.activity_select, container, false);
 //    }
 //
 //    @Override

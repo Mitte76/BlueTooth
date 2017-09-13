@@ -32,7 +32,8 @@ public class Constants {
     public static final String READ_STOP = "READ//";
     public static final String THREAD_START = "//THRD";
     public static final String THREAD_STOP = "THRD//";
-
+    public static final String DIRECTION_START = "//DIR";
+    public static final String DIRECTION_STOP = "DIR//";
 
     public static final int STATE_NONE = 0;       // we're doing nothing
     public static final int STATE_LISTEN = 1;     // now listening for incoming connections

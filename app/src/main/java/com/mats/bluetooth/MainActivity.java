@@ -20,29 +20,19 @@ package com.mats.bluetooth;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
 import android.view.View;
 import android.widget.Button;
 
-/**
- * A simple launcher activity containing a summary sample description, sample log and a custom
- * {@link android.support.v4.app.Fragment} which can display a view.
- * <p>
- * For devices with displays with a width of 720dp or greater, the sample log is always visible,
- * on other devices it's visibility is controlled by an item on the Action Bar.
- */
 public class MainActivity extends AppCompatActivity {
 
     public static final String TAG = "MainActivity";
 
-    private boolean mLogShown;
-    private Toolbar toolbar;
     private Button masterButton, slaveButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.fragment_select);
+        setContentView(R.layout.activity_select);
         init();
 
 
@@ -72,7 +62,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void slaveIntent(){
-        Intent slaveIntent = new Intent(this, SmsActivity.class);
+        Intent slaveIntent = new Intent(this, SlaveActivity.class);
         startActivity(slaveIntent);
     }
 

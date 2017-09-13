@@ -34,6 +34,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -412,6 +413,7 @@ public class MasterService extends Service implements Listener {
                                 + Constants.MESSAGE_START + msg.getBody() + Constants.MESSAGE_STOP
                                 + Constants.READ_START + msg.getRead() + Constants.READ_STOP
                                 + Constants.THREAD_START + msg.getThread() + Constants.THREAD_STOP
+                                + Constants.DIRECTION_START + msg.getDirection() + Constants.DIRECTION_STOP
                                 + Constants.ITEM_STOP + Constants.DELIMITER_STRING);
                         Log.d(TAG, "sendMessage: ID SMS " + msg.getID());
                     }
@@ -425,6 +427,7 @@ public class MasterService extends Service implements Listener {
                                 + Constants.ID_START + msg.getID() + Constants.ID_STOP
                                 + Constants.MESSAGE_START + msg.getBody() + Constants.MESSAGE_STOP
                                 + Constants.THREAD_START + msg.getThread() + Constants.THREAD_STOP
+                                + Constants.DIRECTION_START + msg.getDirection() + Constants.DIRECTION_STOP
                                 + Constants.READ_START + msg.getRead() + Constants.READ_STOP);
                         Log.d(TAG, "sendMessage: ID MMS " + msg.getID());
 
@@ -472,15 +475,11 @@ public class MasterService extends Service implements Listener {
 
         if (c.moveToFirst()) {
             do {
-//                Log.d(TAG, "scanMMS: " + Arrays.toString(c.getColumnNames()));
-                /*String[] col = c.getColumnNames();
-                String str = "";
-                for(int i = 0; i < col.length; i++) {
-                    str = str + col[i] + ": " + c.getString(i) + ", ";
-                }
-                System.out.println(str);*/
+
                 System.out.println("--------------------MMS------------------");
                 Msg msg = new Msg(c.getString(c.getColumnIndex("_id")));
+
+
                 msg.setType("MMS");
                 msg.setThread(c.getString(c.getColumnIndex("thread_id")));
                 msg.setDate(c.getString(c.getColumnIndex("date")));
@@ -576,26 +575,41 @@ public class MasterService extends Service implements Listener {
 
         Cursor c = cr.query(uri, proj, "read = 0", null, null);
 
+        ArrayList<String> threads = new ArrayList<>();
 
         if (c.moveToFirst()) {
+
+            Log.d(TAG, "scanSMS: " + Arrays.toString(c.getColumnNames()));
             do {
-                String[] col = c.getColumnNames();
-                String str = "";
-                for (int i = 0; i < col.length; i++) {
-                    str = str + col[i] + ": " + c.getString(i) + ", ";
-                }
-                //System.out.println(str);
-
                 System.out.println("--------------------SMS------------------");
+                if (!threads.contains(c.getString(c.getColumnIndex("thread_id")))) {
+                    threads.add(c.getString(c.getColumnIndex("thread_id")));
+                } else {
+                    Log.d(TAG, "scanSMS: ThreadId fanns redan i arrayen ");
+                }
+
+                Msg msg = new Msg(c.getString(c.getColumnIndex("_id")));
+                msg.setType("SMS");
+                msg.setDate(c.getString(c.getColumnIndex("date")));
+                msg.setThread(c.getString(c.getColumnIndex("thread_id")));
+                msg.setAddr(c.getString(c.getColumnIndex("Address")));
+                msg.setBody(c.getString(c.getColumnIndex("body")));
+                msg.setDirection(c.getString(c.getColumnIndex("type")));
+                msg.setContact(getContactName(c.getString(c.getColumnIndex("Address"))));
+                msg.setRead(getContactName(c.getString(c.getColumnIndex("read"))));
+
+            } while (c.moveToNext());
 
 
-                Cursor thread = cr.query(uri, proj, "thread_id = " + c.getString(c.getColumnIndex("thread_id")), null, null);
+            int j = 0;
+
+            do {
+                Cursor thread = cr.query(uri, proj, "thread_id = " + threads.get(j), null, null);
                 if (thread.moveToFirst()) {
-                    int i = 0;
-
+                    int k = 0;
                     do {
+                        boolean finnsEj = false;
                         Msg msg = new Msg(thread.getString(thread.getColumnIndex("_id")));
-
                         msg.setType("SMS");
                         msg.setDate(thread.getString(thread.getColumnIndex("date")));
                         msg.setThread(thread.getString(thread.getColumnIndex("thread_id")));
@@ -604,16 +618,37 @@ public class MasterService extends Service implements Listener {
                         msg.setDirection(thread.getString(thread.getColumnIndex("type")));
                         msg.setContact(getContactName(thread.getString(c.getColumnIndex("Address"))));
                         msg.setRead(getContactName(thread.getString(c.getColumnIndex("read"))));
-                        Log.d(TAG, "scanMMS: Read? " + msg.getRead());
+//                        Log.d(TAG, "scanSMS: Read? " + msg.getRead());
 
-                        messages.add(msg);
-                        i++;
-                    } while (thread.moveToNext() && i != 10);
+                        for (int l = 0; l < messages.size(); l++) {
+                            if (msg.equals(messages.get(l))) {
+                                Log.d(TAG, "scanSMS: Meddelandet fanns redan");
+                                break;
+                            } else {
+                                finnsEj = true;
 
+                                Log.d(TAG, "scanSMS: Meddelandet tillagt i messages Array");
+                                Log.d(TAG, "scanSMS: I storlek " + j + " " + k + " " + messages.size());
+                            }
+
+                        }
+                        if (finnsEj){
+                            messages.add(msg);
+                        }
+
+                        k++;
+
+
+                    } while (thread.moveToNext() && k < 10);
                 }
+
+
+                j++;
                 thread.close();
 
-            } while (c.moveToNext());
+            } while (j < threads.size());
+
+
         }
         c.close();
 
@@ -698,9 +733,6 @@ public class MasterService extends Service implements Listener {
 
     private void sendSMS(String message, String number) {
         Log.d(TAG, "sendSMS: " + message);
-//        String number = message.substring(message.indexOf("(|") + 2, message.indexOf("|)"));
-//        String test = message.replaceAll("\\(\\|.*\\|\\)", "");
-
         Log.d(TAG, "sendSMS: Skickar till!" + number);
         SmsManager smsManager = SmsManager.getDefault();
         smsManager.sendTextMessage(number, null, message, null, null);
