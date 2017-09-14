@@ -405,6 +405,8 @@ public class SlaveService extends Service {
 
     private void startListening() {
 
+            sendResult(mState);
+
         if (mConnectedThread != null) {
             mConnectedThread.closeStreams();
             mConnectedThread = null;

@@ -37,7 +37,6 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
     private static final String TAG = "MasterActivity";
     private Toolbar toolbar;
     private Button mOffButton, mOnButton;
-    private TextView infoText;
     private MasterService mService;
     private boolean mBound = false;
     private ImageView toolbarStatusImg;
@@ -260,7 +259,6 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
     private void init() {
         mOffButton = (Button) findViewById(R.id.button_off);
         mOnButton = (Button) findViewById(R.id.button_on);
-        infoText = (TextView) findViewById(R.id.info);
 
         if (isMyServiceRunning()) {
             Intent service = new Intent(getApplicationContext(), MasterService.class);
@@ -338,7 +336,6 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
             case SELECT_SLAVE_DEVICE:
                 if (resultCode == Activity.RESULT_OK) {
                     SLAVE_MAC = data.getExtras().getString(DeviceListActivity.EXTRA_DEVICE_ADDRESS);
-                    infoText.setText(R.string.start_service_available);
                 }
                 break;
         }

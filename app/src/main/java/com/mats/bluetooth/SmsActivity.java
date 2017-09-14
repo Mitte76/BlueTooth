@@ -246,12 +246,54 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
 
     }
 
-    @Override
-    protected void onStop() {
-        super.onStop();
+//    @Override
+//    protected void onStop() {
+//        super.onStop();
+//        if (isMyServiceRunning()) {
+//            Intent service = new Intent(getApplicationContext(), SlaveService.class);
+//            service.setAction("UNREGISTER_RECEIVER");
+//            getApplicationContext().startService(service);
+//            Log.d(TAG, "onCreate: Running");
+//        }
+//    }
+//    @Override
+//    protected void onPause() {
+//        super.onPause();
+//        if (isMyServiceRunning()) {
+//            Intent service = new Intent(getApplicationContext(), SlaveService.class);
+//            service.setAction("UNREGISTER_RECEIVER");
+//            getApplicationContext().startService(service);
+//            Log.d(TAG, "onCreate: Running");
+//        }
+//    }
 
+    @Override
+    public void onResume(){
+        super.onResume();
+        if (isMyServiceRunning()) {
+            Intent service = new Intent(getApplicationContext(), SlaveService.class);
+            service.setAction("REGISTER_RECEIVER");
+            service.putExtra("ResultReceiver", mResultReceiver);
+            service.putExtra("ResultReceiver_ID", hashCode());
+            getApplicationContext().startService(service);
+
+            Log.d(TAG, "onCreate: Running");
+        }
     }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (isMyServiceRunning()) {
+            Intent service = new Intent(getApplicationContext(), SlaveService.class);
+            service.setAction("REGISTER_RECEIVER");
+            service.putExtra("ResultReceiver", mResultReceiver);
+            service.putExtra("ResultReceiver_ID", hashCode());
+            getApplicationContext().startService(service);
+
+            Log.d(TAG, "onCreate: Running");
+        }
+    }
 
     private boolean isMyServiceRunning() {
         ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);

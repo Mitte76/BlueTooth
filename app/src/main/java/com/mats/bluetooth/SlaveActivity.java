@@ -113,7 +113,7 @@ public class SlaveActivity extends AppCompatActivity {
                     Log.d(TAG, "onReceiveResult: ");
                     break;
                 case Constants.STATE_LISTEN:
-                    toolbarStatusImg.setImageResource(R.drawable.blue_status);
+                    toolbarStatusImg.setImageResource(R.drawable.orange_status);
 
                     Log.d(TAG, "onReceiveResult: ");
                     break;
@@ -139,15 +139,55 @@ public class SlaveActivity extends AppCompatActivity {
 
     }
 
-    @Override
-    protected void onStop() {
-        super.onStop();
+//    @Override
+//    protected void onStop() {
+//        super.onStop();
+//        if (isMyServiceRunning()) {
+//            Intent service = new Intent(getApplicationContext(), SlaveService.class);
+//            service.setAction("UNREGISTER_RECEIVER");
+//            getApplicationContext().startService(service);
+//            Log.d(TAG, "onCreate: Running");
+//        }
+//
+//    }
+//
+//    @Override
+//    protected void onPause() {
+//        super.onPause();
+//        if (isMyServiceRunning()) {
+//            Intent service = new Intent(getApplicationContext(), SlaveService.class);
+//            service.setAction("UNREGISTER_RECEIVER");
+//            getApplicationContext().startService(service);
+//            Log.d(TAG, "onCreate: Running");
+//        }
+//    }
 
+    @Override
+    public void onResume(){
+        super.onResume();
+        if (isMyServiceRunning()) {
+            Intent service = new Intent(getApplicationContext(), SlaveService.class);
+            service.setAction("REGISTER_RECEIVER");
+            service.putExtra("ResultReceiver", mResultReceiver);
+            service.putExtra("ResultReceiver_ID", hashCode());
+            getApplicationContext().startService(service);
+
+            Log.d(TAG, "onCreate: Running");
+        }
     }
+
 
     @Override
     protected void onStart() {
+        if (isMyServiceRunning()) {
+            Intent service = new Intent(getApplicationContext(), SlaveService.class);
+            service.setAction("REGISTER_RECEIVER");
+            service.putExtra("ResultReceiver", mResultReceiver);
+            service.putExtra("ResultReceiver_ID", hashCode());
+            getApplicationContext().startService(service);
 
+            Log.d(TAG, "onCreate: Running");
+        }
         init();
         Log.d(TAG, "onStart: DEN HAR STARTAT IGEN");
         super.onStart();
