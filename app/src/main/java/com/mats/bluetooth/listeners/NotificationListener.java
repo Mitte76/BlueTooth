@@ -21,7 +21,7 @@ public class NotificationListener extends NotificationListenerService {
     private static NotificationListenerInterface mNotify;
 
     public interface NotificationListenerInterface {
-        void onNotificationReceived(String string);
+        void onNotificationReceived(String address, String subject, String message);
     }
 
     @Override
@@ -48,7 +48,7 @@ public class NotificationListener extends NotificationListenerService {
             if (Objects.equals(sbn.getPackageName(), "com.google.android.gm")) {
                 String subject = extras.getCharSequence("android.text").toString();
                 String message = extras.getCharSequence("android.bigText").toString().replaceFirst(extras.getCharSequence("android.text").toString(),"").replace("\n", "").replace("\r", "");
-                mNotify.onNotificationReceived("Nytt mail från: " + extras.getString("android.title") + " Subject: " + subject + " Message: " + message);
+                mNotify.onNotificationReceived(extras.getString("android.title"), subject , message);
             }
         }
     }

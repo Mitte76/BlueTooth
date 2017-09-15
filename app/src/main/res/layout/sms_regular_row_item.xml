@@ -15,7 +15,7 @@
 
 
     <TextView
-        android:id="@+id/list_message_left"
+        android:id="@+id/noti_list_message_left"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentStart="true"

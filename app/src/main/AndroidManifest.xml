@@ -53,7 +53,7 @@
         <activity
             android:name=".SlaveActivity"
             android:launchMode="singleTask" />
-        <activity android:name=".SmsActivity2" />
+        <activity android:name=".NotificationActivity" />
 
         <service
             android:name=".MasterService"

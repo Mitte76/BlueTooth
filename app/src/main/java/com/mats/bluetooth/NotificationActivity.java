@@ -26,23 +26,20 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.mats.bluetooth.Adapter.SmsThreadsAdapter;
+import com.mats.bluetooth.Adapter.NotificationAdapter;
 import com.mats.bluetooth.DbHelper.Database;
-import com.mats.bluetooth.Dialog.AddingTaskDialogFragment2;
 import com.mats.bluetooth.Helper.SwipeUtil;
 
 import java.util.ArrayList;
 
 
-public class SmsActivity2 extends AppCompatActivity implements AddingTaskDialogFragment2.ReplyMessageListener {
+public class NotificationActivity extends AppCompatActivity{
     private Database dbHelper;
     private TextView toolbarText;
-    private static final String TAG = "SmsActivity";
-    private ListView mListView;
-    private ImageView mImageView, toolbarStatusImg;
+    private static final String TAG = "NotificationActivity";
+    private ImageView toolbarStatusImg;
 
     private RecyclerView mRecyclerView;
-    private ArrayAdapter<String> mMessageArrayAdapter;
     private ArrayList<String> mMessageNumberArray;
     private ArrayList<String> mMessageUserArray;
 
@@ -69,9 +66,6 @@ public class SmsActivity2 extends AppCompatActivity implements AddingTaskDialogF
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         this.registerReceiver(this.mBatInfoReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
 
-
-//        sharedpreferences = getSharedPreferences(MYPREFERENCES, Context.MODE_PRIVATE);
-
         if (isMyServiceRunning()) {
             Intent service = new Intent(getApplicationContext(), SlaveService.class);
             service.setAction("REGISTER_RECEIVER");
@@ -97,10 +91,6 @@ public class SmsActivity2 extends AppCompatActivity implements AddingTaskDialogF
                 Log.d(TAG, "onCreate: INIT");
             }
         }
-
-//        if (savedInstanceState == null) {
-//
-//        }
 
     }
 
@@ -140,7 +130,6 @@ public class SmsActivity2 extends AppCompatActivity implements AddingTaskDialogF
         @Override
         public void onReceive(Context ctxt, Intent intent) {
             int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0);
-//            Log.d(TAG, "onReceive: " + level);
             if (toolbarText != null) {
                 toolbarText.setText(String.valueOf(level) + "%");
             }
@@ -148,56 +137,19 @@ public class SmsActivity2 extends AppCompatActivity implements AddingTaskDialogF
     };
 
     private void redrawScreen() {
-//        Cursor cursor = dbHelper.getSMS();
-//        List<String> dataList = new ArrayList<>();
-//
-//        for(cursor.moveToFirst(); !cursor.isAfterLast(); cursor.moveToNext()) {
-//            // The Cursor is now set to the right position
-//            dataList.add(cursor.getString(cursor.getColumnIndex(Database.KEY_MESSAGE)));
-//        }
-        SmsThreadsAdapter smsThreadsAdapter = new SmsThreadsAdapter(dbHelper.getNotifications());
+
+        NotificationAdapter notificationAdapter = new NotificationAdapter(dbHelper.getNotifications());
         if (mRecyclerView == null) {
             mRecyclerView = findViewById(R.id.recyclerView);
-            mRecyclerView.setAdapter(smsThreadsAdapter);
+            mRecyclerView.setAdapter(notificationAdapter);
         } else {
-            mRecyclerView.setAdapter(smsThreadsAdapter);
+            mRecyclerView.setAdapter(notificationAdapter);
         }
 
 
         setSwipeForRecyclerView();
 
 
-//        SimpleCursorAdapter adapter = new SimpleCursorAdapter(getApplicationContext(), R.layout.list_reply_message, cursor,
-//                new String[]{dbHelper.KEY_TIME/*KEY_NAME*/, dbHelper.KEY_MESSAGE}, new int[]{R.id.list_number, R.id.list_message}, 0);
-//        mListView.setAdapter(adapter);
-//        Log.d(TAG, "redrawScreen: Innan");
-//        if (cursor != null && cursor.getCount() > 0) {
-//            cursor.moveToFirst();
-//            Log.d(TAG, "redrawScreen: " + cursor.getCount());
-//            do {
-//                mMessageUserArray.add(cursor.getString(2));
-//                mMessageNumberArray.add(cursor.getString(1));
-//                mMessageArrayAdapter.add(cursor.getString(2) + ": " + cursor.getString(3));
-////                Log.d(TAG, "sendMessage: " + cursor.getString(1) + " " + cursor.getString(2) + " "
-////                        + cursor.getString(3) + " " + cursor.getString(4));
-//            } while (cursor.moveToNext());
-//            mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-//                @Override
-//                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-//                    if (mMessageNumberArray.get(position).substring(0, 1).equals("+")) {
-//                        android.support.v4.app.DialogFragment addingTaskDialogFragment2 = new AddingTaskDialogFragment2();
-//                        Bundle args = new Bundle();
-//                        args.putString("user", mMessageUserArray.get(position));
-//                        args.putString("number", mMessageNumberArray.get(position));
-//                        args.putString("message", mMessageArrayAdapter.getItem(position));
-//                        addingTaskDialogFragment2.setArguments(args);
-//                        addingTaskDialogFragment2.show(getSupportFragmentManager(), "AddingTaskDialogFragment");
-//                    } else {
-//                        Toast.makeText(getApplicationContext(), R.string.no_reply, Toast.LENGTH_SHORT).show();
-//                    }
-//                }
-//            });
-//        }
     }
 
     private void setSwipeForRecyclerView() {
@@ -206,14 +158,14 @@ public class SmsActivity2 extends AppCompatActivity implements AddingTaskDialogF
             @Override
             public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
                 int swipedPosition = viewHolder.getAdapterPosition();
-                SmsThreadsAdapter adapter = (SmsThreadsAdapter) mRecyclerView.getAdapter();
+                NotificationAdapter adapter = (NotificationAdapter) mRecyclerView.getAdapter();
                 adapter.pendingRemoval(swipedPosition);
             }
 
             @Override
             public int getSwipeDirs(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
                 int position = viewHolder.getAdapterPosition();
-                SmsThreadsAdapter adapter = (SmsThreadsAdapter) mRecyclerView.getAdapter();
+                NotificationAdapter adapter = (NotificationAdapter) mRecyclerView.getAdapter();
                 if (adapter.isPendingRemoval(position)) {
                     return 0;
                 }
@@ -245,26 +197,6 @@ public class SmsActivity2 extends AppCompatActivity implements AddingTaskDialogF
 
     }
 
-//    @Override
-//    protected void onStop() {
-//        super.onStop();
-//        if (isMyServiceRunning()) {
-//            Intent service = new Intent(getApplicationContext(), SlaveService.class);
-//            service.setAction("UNREGISTER_RECEIVER");
-//            getApplicationContext().startService(service);
-//            Log.d(TAG, "onCreate: Running");
-//        }
-//    }
-//    @Override
-//    protected void onPause() {
-//        super.onPause();
-//        if (isMyServiceRunning()) {
-//            Intent service = new Intent(getApplicationContext(), SlaveService.class);
-//            service.setAction("UNREGISTER_RECEIVER");
-//            getApplicationContext().startService(service);
-//            Log.d(TAG, "onCreate: Running");
-//        }
-//    }
 
     @Override
     public void onResume(){
@@ -307,7 +239,7 @@ public class SmsActivity2 extends AppCompatActivity implements AddingTaskDialogF
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.slave, menu);
+        getMenuInflater().inflate(R.menu.notification, menu);
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -342,29 +274,16 @@ public class SmsActivity2 extends AppCompatActivity implements AddingTaskDialogF
                 }
                 return true;
             }
-            case R.id.undelete: {
-                dbHelper.markSmsUnDeleted();
-//                Cursor log = dbHelper.getSMSLog();
-//                Log.d(TAG, "onOptionsItemSelected: " + log.getCount());
-                redrawScreen();
-                return true;
-            }
         }
         return false;
     }
 
     private void init() {
         mRecyclerView = findViewById(R.id.recyclerView);
-//        mListView = findViewById(R.id.in);
-        mImageView = findViewById(R.id.imageView);
-        mMessageArrayAdapter = new ArrayAdapter<>(this, R.layout.message);
-        mMessageNumberArray = new ArrayList<>();
-        mMessageUserArray = new ArrayList<>();
         LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
         linearLayoutManager.setOrientation(LinearLayoutManager.VERTICAL);
         mRecyclerView.setLayoutManager(linearLayoutManager);
         redrawScreen();
-
     }
 
     @Override
@@ -387,38 +306,4 @@ public class SmsActivity2 extends AppCompatActivity implements AddingTaskDialogF
                 break;
         }
     }
-
-    @Override
-    public void onReply(String number, String text) {
-        if (isMyServiceRunning()) {
-            Intent service = new Intent(getApplicationContext(), SlaveService.class);
-            service.setAction("SEND_MESSAGE");
-            service.putExtra("MESSAGE_TEXT", text);
-            service.putExtra("MESSAGE_NUMBER", number);
-            getApplicationContext().startService(service);
-            Log.d(TAG, "onCreate: Running");
-        } else {
-            Toast.makeText(this, R.string.service_not_running, Toast.LENGTH_LONG).show();
-
-        }
-        Log.d(TAG, "onReply: " + number + ": " + text);
-    }
-
-    @Override
-    public void onMarkRead(String id, String number, String text) {
-        if (isMyServiceRunning()) {
-            Intent service = new Intent(getApplicationContext(), SlaveService.class);
-            service.setAction("MARK_READ");
-            service.putExtra("MESSAGE_ID", id);
-            service.putExtra("MESSAGE_TEXT", text);
-            service.putExtra("MESSAGE_NUMBER", number);
-            getApplicationContext().startService(service);
-            Log.d(TAG, "onCreate: Running");
-        } else {
-            Toast.makeText(this, R.string.service_not_running, Toast.LENGTH_LONG).show();
-
-        }
-    }
-
-
 }

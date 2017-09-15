@@ -320,10 +320,15 @@ public class SlaveService extends Service {
             intent.setAction("REFRESH");
             startActivity(intent);
         } else if ((inMessage.substring(0, Constants.NOTIFICATION.length()).contains(Constants.NOTIFICATION))) {
-            String message = inMessage.substring(inMessage.indexOf(Constants.NOTIFICATION_START) + Constants.NOTIFICATION_START.length(), inMessage.indexOf(Constants.NOTIFICATION_STOP));
+            Log.d(TAG, "sortMessage: " + inMessage);
+            String message = inMessage.substring(inMessage.indexOf(Constants.MESSAGE_START) + Constants.MESSAGE_START.length(), inMessage.indexOf(Constants.MESSAGE_STOP));
+            String address = inMessage.substring(inMessage.indexOf(Constants.ADDRESS_START) + Constants.ADDRESS_START.length(), inMessage.indexOf(Constants.ADDRESS_STOP));
+            String subject = inMessage.substring(inMessage.indexOf(Constants.SUBJECT_START) + Constants.SUBJECT_START.length(), inMessage.indexOf(Constants.SUBJECT_STOP));
 
-            dbHelper.addNotification(message);
-            Log.d(TAG, "sortMessage: " + dbHelper.getNotifications().getCount());
+            Log.d(TAG, "sortMessage: " + address + " " + subject + " " + message);
+
+            dbHelper.addNotification(address, subject, message);
+//            Log.d(TAG, "sortMessage: " + dbHelper.getNotifications().getCount());
 
         } else {
             Log.d(TAG, "sortMessage: WTF! " + inMessage);

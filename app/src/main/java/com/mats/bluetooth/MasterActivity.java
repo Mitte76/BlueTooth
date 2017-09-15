@@ -134,6 +134,7 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
                     break;
                 case Constants.STATE_NONE:
                     toolbarStatusImg.setImageResource(R.drawable.red_status);
+                    mToolbarCountText.setText("");
                     Log.d(TAG, "onReceiveResult: ");
                     break;
                 case Constants.STATE_CONNECTING:

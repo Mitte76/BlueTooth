@@ -11,10 +11,4 @@
         android:id="@+id/stop_service"
         app:showAsAction="never"
         android:title="@string/stop_service"/>
-
-    <item
-        android:id="@+id/undelete"
-        app:showAsAction="never"
-        android:title="@string/undelete_sms"/>
-
 </menu>

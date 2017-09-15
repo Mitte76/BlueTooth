@@ -49,10 +49,10 @@ public class Database extends SQLiteOpenHelper {
             + KEY_REMOTE_ID + " TEXT unique," + KEY_READ + " TEXT, "
             + KEY_THREAD + " TEXT, " + KEY_DELETED_LOCAL + " TEXT, "
             + KEY_IMAGE + " TEXT, " + KEY_DIRECTION + " TEXT, "
-            + KEY_NOTIFICATION_MESSAGE + " TEXT, "+ KEY_DELETED_EXTERNAL + " TEXT " + ")";
+            + KEY_DELETED_EXTERNAL + " TEXT " + ")";
 
     private static final String CREATE_NOTIFICATION_TABLE = "CREATE TABLE " + NOTIFICATION_TABLE + "("
-            + KEY_ID + " INTEGER PRIMARY KEY," + KEY_NOTIFICATION_MESSAGE + " TEXT, "
+            + KEY_ID + " INTEGER PRIMARY KEY," + KEY_NOTIFICATION_MESSAGE + " TEXT unique, "
             + KEY_NOTIFICATION_ADDRESS + " TEXT, " + KEY_NOTIFICATION_SUBJECT + " TEXT, "
             + KEY_DELETED_LOCAL + " TEXT " + ")";
 
@@ -243,19 +243,21 @@ public class Database extends SQLiteOpenHelper {
         }
     }
 
-    public void addNotification(String message) {
+    public void addNotification(String address, String subject, String message) {
         Long test = null;
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
 
+        values.put(KEY_NOTIFICATION_ADDRESS, address);
+        values.put(KEY_NOTIFICATION_SUBJECT, subject);
         values.put(KEY_NOTIFICATION_MESSAGE, message);
-        values.put(KEY_DELETED_LOCAL, 0);
+
         try {
             test = db.insertWithOnConflict(NOTIFICATION_TABLE, null, values, SQLiteDatabase.CONFLICT_ROLLBACK);
         } catch (SQLException e) {
 
             if (e instanceof SQLiteConstraintException) {
-//                Log.d(TAG, "addSMS: japp" + test);
+                Log.d(TAG, "addSMS: japp" + test);
 //
 //                try {
 //                    db.execSQL(String.format("UPDATE %s SET %s = 0 WHERE %s = %s;",
@@ -307,12 +309,19 @@ public class Database extends SQLiteOpenHelper {
     }
 
     public Cursor getNotifications(){
-            SQLiteDatabase db = this.getWritableDatabase();
-            String select = String.format("SELECT * FROM %s;",
-                    SMS_TABLE);
-            return db.rawQuery(select, null);
+        SQLiteDatabase db = this.getWritableDatabase();
+        String select = String.format("SELECT * FROM %s;",
+                NOTIFICATION_TABLE);
+        return db.rawQuery(select, null);
     }
 
+
+    public void deleteNotification(Long id){
+        SQLiteDatabase db = this.getWritableDatabase();
+        Log.d(TAG, "deleteSms: Deleting");
+        db.delete(NOTIFICATION_TABLE, KEY_ID + " = " + id, null);
+
+    }
 }
 
 

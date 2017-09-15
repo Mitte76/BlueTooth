@@ -206,9 +206,9 @@ public class SmsAdapter extends RecyclerView.Adapter<SmsAdapter.ItemViewHolder> 
             }
 
 
-//            holder.listMessageLeft.setEllipsize(TextUtils.TruncateAt.END);
-//            holder.listMessageLeft.setSingleLine(true);
-//            holder.listMessageLeft.setSelected(true);
+//            holder.notiSubject.setEllipsize(TextUtils.TruncateAt.END);
+//            holder.notiSubject.setSingleLine(true);
+//            holder.notiSubject.setSelected(true);
 
         }
     }
@@ -286,7 +286,7 @@ public class SmsAdapter extends RecyclerView.Adapter<SmsAdapter.ItemViewHolder> 
 
             regularLayout = (RelativeLayout) view.findViewById(R.id.regularLayout);
             listNumber = (TextView) view.findViewById(R.id.list_number);
-            listMessageLeft = (TextView) view.findViewById(R.id.list_message_left);
+            listMessageLeft = (TextView) view.findViewById(R.id.noti_list_message_left);
             listMessageRight = (TextView) view.findViewById(R.id.list_message_right);
             swipeLayout = (LinearLayout) view.findViewById(R.id.swipeLayout);
             undo = (TextView) view.findViewById(R.id.undo);

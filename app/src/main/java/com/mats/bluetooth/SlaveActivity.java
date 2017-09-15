@@ -30,7 +30,7 @@ public class SlaveActivity extends AppCompatActivity {
     private Database dbHelper;
     private TextView toolbarText, messagesTxt, notificationText;
     private ImageView toolbarStatusImg;
-    private static final String TAG = "SmsActivity";
+    private static final String TAG = "SlaveActivity";
 
     private BluetoothAdapter mBluetoothAdapter = null;
     private static final int REQUEST_ENABLE_BT = 3;
@@ -317,7 +317,7 @@ public class SlaveActivity extends AppCompatActivity {
         startActivity(slaveIntent);
     }
     private void slaveIntent2(){
-        Intent slaveIntent = new Intent(this, SmsActivity2.class);
+        Intent slaveIntent = new Intent(this, NotificationActivity.class);
         startActivity(slaveIntent);
     }
 }

@@ -114,10 +114,10 @@ public class SmsThreadsAdapter extends RecyclerView.Adapter<SmsThreadsAdapter.It
 //            userOut.setSpan(userColor, 0, user.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
 
-//            holder.listMessageLeft.setText(message);
-//            holder.listMessageLeft.setEllipsize(TextUtils.TruncateAt.END);
-//            holder.listMessageLeft.setSingleLine(true);
-//            holder.listMessageLeft.setSelected(true);
+//            holder.notiSubject.setText(message);
+//            holder.notiSubject.setEllipsize(TextUtils.TruncateAt.END);
+//            holder.notiSubject.setSingleLine(true);
+//            holder.notiSubject.setSelected(true);
 //            SpannableString s = new SpannableString(user + message);
 
 //            messageOut.setSpan(bgNumber, 0, message.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -134,7 +134,7 @@ public class SmsThreadsAdapter extends RecyclerView.Adapter<SmsThreadsAdapter.It
 //                ForegroundColorSpan bgNumber = new ForegroundColorSpan(ContextCompat.getColor(context,R.color.number_bg_bold));
 //                s.setSpan(bgNumber, 0, user.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-//                holder.listMessageLeft.setBackgroundColor(Color.LTGRAY);
+//                holder.notiSubject.setBackgroundColor(Color.LTGRAY);
             } else {
 
                 Log.d(TAG, "onBindViewHolder: " + read);
@@ -147,7 +147,7 @@ public class SmsThreadsAdapter extends RecyclerView.Adapter<SmsThreadsAdapter.It
             holder.listNumber.setEllipsize(TextUtils.TruncateAt.MARQUEE);
             holder.listNumber.setSingleLine(true);
             holder.listNumber.setSelected(true);
-//            holder.listMessageLeft.setText(s);
+//            holder.notiSubject.setText(s);
 
             holder.regularLayout.setOnClickListener(new View.OnClickListener() {
                 @Override

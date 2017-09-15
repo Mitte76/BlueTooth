@@ -37,6 +37,11 @@ public class Constants {
     public static final String DIRECTION_STOP = "DIR//";
     public static final String NOTIFICATION_START = "//NOTI";
     public static final String NOTIFICATION_STOP = "NOTI//";
+    public static final String ADDRESS_START = "//ADDR";
+    public static final String ADDRESS_STOP = "ADDR//";
+    public static final String SUBJECT_START = "//SUBJ";
+    public static final String SUBJECT_STOP = "SUBJ//";
+
 
 
     public static final int STATE_NONE = 0;       // we're doing nothing

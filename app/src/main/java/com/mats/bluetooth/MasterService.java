@@ -653,9 +653,13 @@ public class MasterService extends Service implements SmsListener.SmsListenerInt
     }
 
     @Override
-    public void onNotificationReceived(String string) {
-        mConnectedThread.write(Constants.START_STRING + Constants.NOTIFICATION + Constants.NOTIFICATION_START + string + Constants.NOTIFICATION_STOP + Constants.DELIMITER_STRING + Constants.STOP_STRING);
-        Log.d(TAG, "onNotificationReceived: " + string);
+    public void onNotificationReceived(String address, String subject, String message) {
+        mConnectedThread.write(Constants.START_STRING + Constants.NOTIFICATION + Constants.NOTIFICATION_START
+                + Constants.ADDRESS_START + address + Constants.ADDRESS_STOP
+                + Constants.SUBJECT_START + subject + Constants.SUBJECT_STOP
+                + Constants.MESSAGE_START + message + Constants.MESSAGE_STOP
+                + Constants.NOTIFICATION_STOP + Constants.DELIMITER_STRING + Constants.STOP_STRING);
+//        Log.d(TAG, "onNotificationReceived: " + address);
     }
 
     // New Class for Connecting Thread
