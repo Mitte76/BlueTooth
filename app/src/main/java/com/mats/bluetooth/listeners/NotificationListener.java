@@ -43,12 +43,16 @@ public class NotificationListener extends NotificationListenerService {
         Bundle extras = sbn.getNotification().extras;
 
         Log.d(TAG, "onNotificationPosted: " + extras.toString());
-        if (mNotify != null) {
+        if (extras != null) {
+            if (mNotify != null) {
+                String subject = "";
+                String message = "";
+                if (Objects.equals(sbn.getPackageName(), "com.google.android.gm")) {
+                    subject = extras.getCharSequence("android.text").toString();
+                    message = extras.getCharSequence("android.bigText").toString().replaceFirst(extras.getCharSequence("android.text").toString(), "").replace("\n", "").replace("\r", "");
 
-            if (Objects.equals(sbn.getPackageName(), "com.google.android.gm")) {
-                String subject = extras.getCharSequence("android.text").toString();
-                String message = extras.getCharSequence("android.bigText").toString().replaceFirst(extras.getCharSequence("android.text").toString(),"").replace("\n", "").replace("\r", "");
-                mNotify.onNotificationReceived(extras.getString("android.title"), subject , message);
+                    mNotify.onNotificationReceived(extras.getString("android.title"), subject, message);
+                }
             }
         }
     }

@@ -13,41 +13,49 @@
 
     >
 
+    <ImageView
+        android:id="@+id/imageView2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_marginStart="@dimen/activity_horizontal_margin"
+        app:srcCompat="@drawable/gmail" />
 
     <TextView
         android:id="@+id/noti_list_address"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentStart="true"
         android:layout_alignParentTop="true"
         android:layout_marginEnd="@dimen/activity_horizontal_margin"
         android:layout_marginStart="@dimen/activity_horizontal_margin"
+        android:layout_toEndOf="@+id/imageView2"
         android:padding="0dp"
-        android:text="ff"
+        android:text="fdddddddf"
         android:textSize="16sp" />
 
     <TextView
         android:id="@+id/noti_list_subject"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_below="@+id/noti_list_address"
+        android:layout_gravity="center_vertical"
         android:layout_marginEnd="@dimen/activity_horizontal_margin"
         android:layout_marginStart="@dimen/activity_horizontal_margin"
-        android:layout_alignParentStart="true"
-        android:layout_below="@id/noti_list_address"
-        android:layout_gravity="center_vertical"
+        android:layout_toEndOf="@+id/imageView2"
         android:padding="0dp"
         android:text="fdsffsdfsdfs"
+
         android:textSize="16sp" />
 
     <TextView
         android:id="@+id/noti_list_message"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="@dimen/activity_horizontal_margin"
-        android:layout_marginStart="@dimen/activity_horizontal_margin"
-        android:layout_alignParentStart="true"
         android:layout_below="@id/noti_list_subject"
         android:layout_gravity="center_vertical"
+        android:layout_marginEnd="@dimen/activity_horizontal_margin"
+        android:layout_marginStart="@dimen/activity_horizontal_margin"
+        android:layout_toEndOf="@+id/imageView2"
         android:padding="0dp"
         android:text="fdsffsdfsdfs"
         android:textSize="16sp" />

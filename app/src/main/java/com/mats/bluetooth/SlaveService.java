@@ -315,10 +315,7 @@ public class SlaveService extends Service {
 
             }
 
-            Intent intent = new Intent(getApplicationContext(), SlaveActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            intent.setAction("REFRESH");
-            startActivity(intent);
+
         } else if ((inMessage.substring(0, Constants.NOTIFICATION.length()).contains(Constants.NOTIFICATION))) {
             Log.d(TAG, "sortMessage: " + inMessage);
             String message = inMessage.substring(inMessage.indexOf(Constants.MESSAGE_START) + Constants.MESSAGE_START.length(), inMessage.indexOf(Constants.MESSAGE_STOP));
@@ -333,6 +330,11 @@ public class SlaveService extends Service {
         } else {
             Log.d(TAG, "sortMessage: WTF! " + inMessage);
         }
+
+        Intent intent = new Intent(getApplicationContext(), SlaveActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        intent.setAction("REFRESH");
+        startActivity(intent);
 
     }
 

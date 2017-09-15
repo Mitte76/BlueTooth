@@ -112,9 +112,11 @@ public class MasterService extends Service implements SmsListener.SmsListenerInt
                                 Log.d(TAG, "onReceive: device address: " + device.getAddress());
                             }
                         }
-                    } /*else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
+                    } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
                             Log.v(TAG, "disconnected: " + device);
-                        } else if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+                        }
+
+                        /*else if (BluetoothDevice.ACTION_FOUND.equals(action)) {
 
                             Log.v(TAG, "found:" + device);
                         } else if (btAdapter.ACTION_DISCOVERY_STARTED.equals(action)) {
