@@ -34,7 +34,7 @@ import com.mats.bluetooth.Helper.SwipeUtil;
 import java.util.ArrayList;
 
 
-public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFragment2.ReplyMessageListener {
+public class SmsActivity2 extends AppCompatActivity implements AddingTaskDialogFragment2.ReplyMessageListener {
     private Database dbHelper;
     private TextView toolbarText;
     private static final String TAG = "SmsActivity";
@@ -155,7 +155,7 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
 //            // The Cursor is now set to the right position
 //            dataList.add(cursor.getString(cursor.getColumnIndex(Database.KEY_MESSAGE)));
 //        }
-        SmsThreadsAdapter smsThreadsAdapter = new SmsThreadsAdapter(dbHelper.getFirstThreadMsg());
+        SmsThreadsAdapter smsThreadsAdapter = new SmsThreadsAdapter(dbHelper.getNotifications());
         if (mRecyclerView == null) {
             mRecyclerView = findViewById(R.id.recyclerView);
             mRecyclerView.setAdapter(smsThreadsAdapter);
