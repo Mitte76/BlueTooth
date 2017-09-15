@@ -2,9 +2,6 @@ package com.mats.bluetooth.Dialog;
 
 import android.content.Context;
 import android.database.Cursor;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Point;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.DialogFragment;
@@ -12,9 +9,7 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.helper.ItemTouchHelper;
-import android.util.Base64;
 import android.util.Log;
-import android.view.Display;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -23,11 +18,10 @@ import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.mats.bluetooth.Adapter.RVAdapter2;
+import com.mats.bluetooth.Adapter.SmsAdapter;
 import com.mats.bluetooth.DbHelper.Database;
 import com.mats.bluetooth.Helper.SwipeUtil;
 import com.mats.bluetooth.R;
@@ -47,7 +41,7 @@ public class AddingTaskDialogFragment2 extends DialogFragment {
     //    private TextView inMessage;
     private Button sendButton/*, markReadButton*/;
     private ReplyMessageListener mReplyMessageListener;
-    private RVAdapter2 rvAdapter;
+    private SmsAdapter rvAdapter;
     private RecyclerView mRecyclerview;
 
     @Override
@@ -100,7 +94,7 @@ public class AddingTaskDialogFragment2 extends DialogFragment {
 
 //        inNumber.setText(user);
 
-        rvAdapter = new RVAdapter2(dbHelper.getSMS2(thread));
+        rvAdapter = new SmsAdapter(dbHelper.getSMS2(thread));
         mRecyclerview.scrollToPosition(rvAdapter.getItemCount() - 1);
         mRecyclerview.setAdapter(rvAdapter);
         Cursor cursor = dbHelper.getOneSMS(id);
@@ -277,14 +271,14 @@ public class AddingTaskDialogFragment2 extends DialogFragment {
             @Override
             public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
                 int swipedPosition = viewHolder.getAdapterPosition();
-                RVAdapter2 adapter = (RVAdapter2) mRecyclerview.getAdapter();
+                SmsAdapter adapter = (SmsAdapter) mRecyclerview.getAdapter();
                 adapter.pendingRemoval(swipedPosition);
             }
 
             @Override
             public int getSwipeDirs(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
                 int position = viewHolder.getAdapterPosition();
-                RVAdapter2 adapter = (RVAdapter2) mRecyclerview.getAdapter();
+                SmsAdapter adapter = (SmsAdapter) mRecyclerview.getAdapter();
                 if (adapter.isPendingRemoval(position)) {
                     return 0;
                 }

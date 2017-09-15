@@ -28,7 +28,7 @@ import com.mats.bluetooth.DbHelper.Database;
 
 public class SlaveActivity extends AppCompatActivity {
     private Database dbHelper;
-    private TextView toolbarText, messagesTxt;
+    private TextView toolbarText, messagesTxt, notificationText;
     private ImageView toolbarStatusImg;
     private static final String TAG = "SmsActivity";
 
@@ -258,7 +258,9 @@ public class SlaveActivity extends AppCompatActivity {
         }
         dbHelper = Database.getInstance(getApplicationContext());
         ImageView messagesImg = findViewById(R.id.slave_main_messageImageView);
+        ImageView notificationImage = findViewById(R.id.slave_main_noteImageView);
         messagesTxt = findViewById(R.id.slave_main_messageTextView);
+        notificationText = findViewById(R.id.slave_main_noteTextView);
 
         messagesTxt.setText(String.valueOf(dbHelper.getSMS().getCount()));
         if (dbHelper.getFirstThreadMsg() != null){
@@ -266,6 +268,16 @@ public class SlaveActivity extends AppCompatActivity {
                 @Override
                 public void onClick(View view) {
                     slaveIntent();
+                }
+            });
+        }
+
+        notificationText.setText(String.valueOf(dbHelper.getNotifications().getCount()));
+        if (dbHelper.getFirstThreadMsg() != null){
+            notificationImage.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    slaveIntent2();
                 }
             });
         }
@@ -302,6 +314,10 @@ public class SlaveActivity extends AppCompatActivity {
 
     private void slaveIntent(){
         Intent slaveIntent = new Intent(this, SmsActivity.class);
+        startActivity(slaveIntent);
+    }
+    private void slaveIntent2(){
+        Intent slaveIntent = new Intent(this, SmsActivity2.class);
         startActivity(slaveIntent);
     }
 }

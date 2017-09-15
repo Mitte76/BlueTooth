@@ -15,6 +15,7 @@ public class Constants {
 
     public static final String SMS = "[SMS]";
     public static final String MMS = "[MMS]";
+    public static final String NOTIFICATION = "[NOT]";
     public static final String ITEM_STOP = "[STOP]";
     public static final String NUMBER_START = "//NUMBER";
     public static final String NUMBER_STOP = "NUMBER//";
@@ -34,12 +35,19 @@ public class Constants {
     public static final String THREAD_STOP = "THRD//";
     public static final String DIRECTION_START = "//DIR";
     public static final String DIRECTION_STOP = "DIR//";
+    public static final String NOTIFICATION_START = "//NOTI";
+    public static final String NOTIFICATION_STOP = "NOTI//";
+
 
     public static final int STATE_NONE = 0;       // we're doing nothing
     public static final int STATE_LISTEN = 1;     // now listening for incoming connections
-    public static final int STATE_CONNECTING = 2; // now initiating an outgoing connection
-    public static final int STATE_CONNECTED = 3;
-    public static final int REFRESH = 10;
+    public static final int STATE_WAITING = 2;
+    public static final int STATE_CONNECTING = 3; // now initiating an outgoing connection
+    public static final int STATE_CONNECTED = 4;
+    public static final int REFRESH = 5;
+    public static final int TIMER_10 = 10;
+    public static final int TIMER_60 = 60;
+    public static final int TIMER_CANCEL = 666;
 
 
 //

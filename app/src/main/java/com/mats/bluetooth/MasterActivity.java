@@ -3,13 +3,18 @@ package com.mats.bluetooth;
 import android.Manifest;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.NotificationManager;
 import android.bluetooth.BluetoothAdapter;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.os.Handler;
+import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.os.ResultReceiver;
 import android.support.v7.app.AppCompatActivity;
@@ -22,6 +27,8 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.mats.bluetooth.listeners.NotificationListener;
 
 import java.util.List;
 
@@ -36,11 +43,12 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
 
     private static final String TAG = "MasterActivity";
     private Toolbar toolbar;
+    private TextView mToolbarCountText;
     private Button mOffButton, mOnButton;
     private MasterService mService;
     private boolean mBound = false;
     private ImageView toolbarStatusImg;
-
+    private CountDownTimer timer;
     private BluetoothAdapter mBluetoothAdapter = null;
     private SharedPreferences sharedpreferences;
 
@@ -54,11 +62,30 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
+
+        ComponentName cn = new ComponentName(this, NotificationListener.class);
+        String flat = Settings.Secure.getString(this.getContentResolver(), "enabled_notification_listeners");
+        final boolean enabled = flat != null && flat.contains(cn.flattenToString());
+        Log.d(TAG, "onCreate: Notification running = " + enabled);
+        NotificationManager n = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !enabled) {
+            if (n.isNotificationPolicyAccessGranted()) {
+
+            } else {
+                // Ask the user to grant access
+                Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+                startActivity(intent);
+            }
+        }
+
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.master_activity);
         toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         toolbarStatusImg = findViewById(R.id.toolbarServiceStatus);
+        mToolbarCountText = findViewById(R.id.toolbarCountdownText);
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         sharedpreferences = getSharedPreferences(MYPREFERENCES, Context.MODE_PRIVATE);
@@ -69,7 +96,7 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
             Toast.makeText(this, "Bluetooth is not available", Toast.LENGTH_LONG).show();
             this.finish();
         } else {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 if (shouldWeAsk("first")) {
                     Log.d(TAG, "onCreate: first");
                     testPermission(PERMISSIONS);
@@ -114,14 +141,30 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
 
                     Log.d(TAG, "onReceiveResult: ");
                     break;
-                case Constants.STATE_LISTEN:
-                    toolbarStatusImg.setImageResource(R.drawable.blue_status);
-
-                    Log.d(TAG, "onReceiveResult: ");
-                    break;
                 case Constants.STATE_CONNECTED:
                     toolbarStatusImg.setImageResource(R.drawable.green_status);
 
+                    Log.d(TAG, "onReceiveResult: ");
+                    break;
+                case Constants.STATE_WAITING:
+                    toolbarStatusImg.setImageResource(R.drawable.blue_status);
+                    Log.d(TAG, "onReceiveResult: ");
+                    break;
+                case Constants.TIMER_10:
+                    toolbarStatusImg.setImageResource(R.drawable.blue_status);
+                    startTimer(10);
+                    Log.d(TAG, "onReceiveResult: ");
+                    break;
+                case Constants.TIMER_60:
+                    toolbarStatusImg.setImageResource(R.drawable.blue_status);
+                    startTimer(60);
+                    Log.d(TAG, "onReceiveResult: ");
+                    break;
+                case Constants.TIMER_CANCEL:
+                    toolbarStatusImg.setImageResource(R.drawable.blue_status);
+                    if (timer != null){
+                        timer.cancel();
+                    }
                     Log.d(TAG, "onReceiveResult: ");
                     break;
 
@@ -129,24 +172,25 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
         }
     };
 
+    private void startTimer(int time) {
 
-    @Override
-    protected void onStart() {
-        super.onStart();
-//        if(isMyServiceRunning()) {
-//            Intent intent = new Intent(this, MasterService.class);
-//            bindService(intent, mConnection, 0);
-//
-//        }
-    }
+        timer = new CountDownTimer((time + 2) * 1000, 1000) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                mToolbarCountText.setText(String.valueOf((millisUntilFinished / 1000) - 2));
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-//        if (mBound) {
-//            unbindService(mConnection);
-//            mBound = false;
-//        }
+                if (((millisUntilFinished / 1000) - 1) == 0){
+                    mToolbarCountText.setText("");
+                    timer.cancel();
+                }
+
+            }
+
+            public void onFinish() {
+            }
+
+        };
+        timer.start();
     }
 
     private boolean isMyServiceRunning() {
@@ -154,7 +198,6 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
         for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
             if ("com.mats.bluetooth.MasterService".equals(service.service.getClassName())) {
                 return true;
-
             }
         }
         return false;
@@ -164,11 +207,6 @@ public class MasterActivity extends AppCompatActivity implements EasyPermissions
     @Override
     protected void onDestroy() {
         super.onDestroy();
-//        if (mBound) {
-//            unbindService(mConnection);
-//            mBound = false;
-//            Log.d(TAG, "onDestroy: ");
-//        }
 
         if (isMyServiceRunning()) {
             Intent i = new Intent(this, MasterService.class);

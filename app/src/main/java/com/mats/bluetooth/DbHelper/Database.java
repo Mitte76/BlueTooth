@@ -24,7 +24,6 @@ public class Database extends SQLiteOpenHelper {
     private static final String SMS_TABLE = "sms_table";
     public static final String KEY_NUMBER = "number";
     public static final String KEY_NAME = "name";
-    public static final String KEY_MESSAGE = "message";
     public static final String KEY_READ = "read";
     public static final String KEY_THREAD = "thread";
     public static final String KEY_REMOTE_ID = "remote_id";
@@ -34,8 +33,15 @@ public class Database extends SQLiteOpenHelper {
     public static final String KEY_DELETED_LOCAL = "deleted_local";
     public static final String KEY_DELETED_EXTERNAL = "deleted_external";
 
+    //NOTIFICATION
+    private static final String NOTIFICATION_TABLE = "notification_table";
+    public static final String KEY_NOTIFICATION_MESSAGE = "message";
+    public static final String KEY_NOTIFICATION_ADDRESS = "address";
+    public static final String KEY_NOTIFICATION_SUBJECT = "subject";
     //Common
+
     public static final String KEY_ID = "_id";
+    public static final String KEY_MESSAGE = "message";
 
     private static final String CREATE_SMS_TABLE = "CREATE TABLE " + SMS_TABLE + "("
             + KEY_ID + " INTEGER PRIMARY KEY," + KEY_NUMBER + " TEXT,"
@@ -43,8 +49,12 @@ public class Database extends SQLiteOpenHelper {
             + KEY_REMOTE_ID + " TEXT unique," + KEY_READ + " TEXT, "
             + KEY_THREAD + " TEXT, " + KEY_DELETED_LOCAL + " TEXT, "
             + KEY_IMAGE + " TEXT, " + KEY_DIRECTION + " TEXT, "
-            + KEY_DELETED_EXTERNAL + " TEXT " + ")";
+            + KEY_NOTIFICATION_MESSAGE + " TEXT, "+ KEY_DELETED_EXTERNAL + " TEXT " + ")";
 
+    private static final String CREATE_NOTIFICATION_TABLE = "CREATE TABLE " + NOTIFICATION_TABLE + "("
+            + KEY_ID + " INTEGER PRIMARY KEY," + KEY_NOTIFICATION_MESSAGE + " TEXT, "
+            + KEY_NOTIFICATION_ADDRESS + " TEXT, " + KEY_NOTIFICATION_SUBJECT + " TEXT, "
+            + KEY_DELETED_LOCAL + " TEXT " + ")";
 
     private Database(Context ctx) {
         super(ctx, DATABASE_NAME, null, DATABASE_VERSION);
@@ -73,12 +83,14 @@ public class Database extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL(CREATE_SMS_TABLE);
+        db.execSQL(CREATE_NOTIFICATION_TABLE);
         db.execSQL("PRAGMA foreign_keys=ON;");
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         db.execSQL(CREATE_SMS_TABLE);
+        db.execSQL(CREATE_NOTIFICATION_TABLE);
         db.execSQL("PRAGMA foreign_keys=ON;");
     }
 
@@ -89,12 +101,14 @@ public class Database extends SQLiteOpenHelper {
 
     public Cursor getSMS() {
         SQLiteDatabase db = this.getWritableDatabase();
-        String selectQuery = "SELECT  * FROM " + SMS_TABLE + " WHERE " + KEY_DELETED_LOCAL + " != 1 AND " + KEY_READ + " == 0 ORDER BY " + KEY_TIME + " DESC";
+        String selectQuery = "SELECT  * FROM " + SMS_TABLE + " WHERE " + KEY_DELETED_LOCAL + " != 1 AND " + KEY_READ + " != 1 ORDER BY " + KEY_TIME + " DESC";
         Cursor cursor = db.rawQuery(selectQuery, null);
 //        cursor.moveToFirst();
         Log.d(TAG, "getSMS: " + cursor.getCount());
         return cursor;
     }
+
+
 
     public Cursor getSMS2(String id) {
         SQLiteDatabase db = this.getWritableDatabase();
@@ -108,27 +122,39 @@ public class Database extends SQLiteOpenHelper {
 
     public Cursor getFirstThreadMsg() {
         SQLiteDatabase db = this.getWritableDatabase();
-        String select1 = String.format("SELECT %s, %s, max(%s) from %s WHERE %s = 0 AND %s == 1 GROUP BY %s;",
-                KEY_THREAD, KEY_DIRECTION, KEY_TIME, SMS_TABLE, KEY_READ, KEY_DIRECTION, KEY_THREAD);
+//        String select1 = String.format("SELECT %s, %s, max(%s) from %s WHERE %s = 0 AND %s = 0 GROUP BY %s;",
+//                KEY_THREAD, KEY_DIRECTION, KEY_TIME, SMS_TABLE, KEY_READ, KEY_DELETED_LOCAL, KEY_THREAD);
+//
+        String select1 = String.format("SELECT %s, %s, max(%s) from %s WHERE %s = 0 AND %s == 1 AND %s = 0 GROUP BY %s;",
+                KEY_THREAD, KEY_DIRECTION, KEY_TIME, SMS_TABLE, KEY_READ, KEY_DIRECTION, KEY_DELETED_LOCAL, KEY_THREAD);
+
         Cursor cursor = db.rawQuery(select1, null);
         if (cursor.moveToFirst()) {
-            String[] thread = new String[cursor.getCount() - 1];
-            String[] time = new String[cursor.getCount() - 1];
-            String[] direction = new String[cursor.getCount() - 1];
+            String[] thread = new String[cursor.getCount()];
+            String[] time = new String[cursor.getCount()];
+            String[] direction = new String[cursor.getCount()];
             int i = 0;
-            while (cursor.moveToNext()) {
+//            thread[i] = cursor.getString(0);
+//            direction[i] = cursor.getString(1);
+//            time[i] = cursor.getString(2);
+            do {
                 thread[i] = cursor.getString(0);
                 direction[i] = cursor.getString(1);
                 time[i] = cursor.getString(2);
                 i++;
+
             }
+            while (cursor.moveToNext());
+
             cursor.close();
             String allTime = TextUtils.join(", ", time);
             String allThread = TextUtils.join(", ", thread);
             String allDirection = TextUtils.join(", ", direction);
-            Log.d(TAG, "getFirstThreadMsg: " + allTime);
+            Log.d(TAG, "getFirstThreadMsg: " + allThread);
             String select = String.format("SELECT * FROM %s WHERE %s IN (%s) AND %s IN (%s) AND %s == 1 ORDER BY %s DESC;",
                     SMS_TABLE, KEY_TIME, allTime, KEY_THREAD, allThread, KEY_DIRECTION, KEY_TIME);
+//            String select = String.format("SELECT * FROM %s;",
+//                    SMS_TABLE);
             return db.rawQuery(select, null);
 
         } else return null;
@@ -217,14 +243,48 @@ public class Database extends SQLiteOpenHelper {
         }
     }
 
+    public void addNotification(String message) {
+        Long test = null;
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+
+        values.put(KEY_NOTIFICATION_MESSAGE, message);
+        values.put(KEY_DELETED_LOCAL, 0);
+        try {
+            test = db.insertWithOnConflict(NOTIFICATION_TABLE, null, values, SQLiteDatabase.CONFLICT_ROLLBACK);
+        } catch (SQLException e) {
+
+            if (e instanceof SQLiteConstraintException) {
+//                Log.d(TAG, "addSMS: japp" + test);
+//
+//                try {
+//                    db.execSQL(String.format("UPDATE %s SET %s = 0 WHERE %s = %s;",
+//                            SMS_TABLE, KEY_DELETED_EXTERNAL, KEY_NOTIFICATION_MESSAGE, message));
+//                } catch (SQLException f) {
+////                    Log.d(TAG, "addSMS 2: " + f);
+//
+//                }
+
+
+            }
+
+        }
+    }
 
     public Cursor getOneSMS(String id) {
         SQLiteDatabase db = this.getWritableDatabase();
         String select = String.format("SELECT * FROM %s WHERE %s = '%s';",
                 SMS_TABLE, KEY_REMOTE_ID, id);
         Cursor c = db.rawQuery(select, null);
-
         return c;
+    }
+
+    public String threadCount(String id) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        String select = String.format("SELECT * FROM %s WHERE %s == '%s' AND %s == 0;",
+                SMS_TABLE, KEY_THREAD, id, KEY_READ);
+        Cursor c = db.rawQuery(select, null);
+        return Integer.toString(c.getCount());
     }
 
     public void deleteSms() {
@@ -237,17 +297,20 @@ public class Database extends SQLiteOpenHelper {
     public void markSmsDeleted(String id) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.execSQL(String.format("UPDATE %s SET %s = 1 WHERE %s = '%s';",
-                SMS_TABLE, KEY_DELETED_LOCAL, KEY_REMOTE_ID, id));
-
-
+                SMS_TABLE, KEY_DELETED_LOCAL, KEY_THREAD, id));
     }
 
     public void markSmsUnDeleted() {
         SQLiteDatabase db = this.getWritableDatabase();
         db.execSQL(String.format("UPDATE %s SET %s = 0;",
                 SMS_TABLE, KEY_DELETED_LOCAL));
+    }
 
-
+    public Cursor getNotifications(){
+            SQLiteDatabase db = this.getWritableDatabase();
+            String select = String.format("SELECT * FROM %s;",
+                    SMS_TABLE);
+            return db.rawQuery(select, null);
     }
 
 }

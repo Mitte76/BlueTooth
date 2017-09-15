@@ -3,14 +3,7 @@ package com.mats.bluetooth.listeners;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Build;
-import android.os.Bundle;
 import android.provider.Telephony;
-import android.telephony.SmsMessage;
-import android.util.Log;
-import android.widget.Toast;
-
-import com.mats.bluetooth.R;
 
 /**
  * Created by mats on 2017-08-22.
@@ -22,24 +15,24 @@ import com.mats.bluetooth.R;
  */
 
 public class SmsListener extends BroadcastReceiver {
-    public interface Listener {
+    public interface SmsListenerInterface {
         void onTextReceived();
     }
 
     private static final String TAG = "SmsBroadcastReceiver";
-    private static Listener mListener;
+    private static SmsListenerInterface mSmsListenerInterface;
 
 
     @Override
     public void onReceive(Context context, Intent intent) {
 
         if (intent.getAction().equals(Telephony.Sms.Intents.SMS_RECEIVED_ACTION)) {
-            mListener.onTextReceived();
+            mSmsListenerInterface.onTextReceived();
         }
     }
 
-    public void setListener(Listener listener) {
-        mListener = listener;
+    public void setListener(SmsListenerInterface smsListenerInterface) {
+        mSmsListenerInterface = smsListenerInterface;
     }
 
 

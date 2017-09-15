@@ -27,8 +27,8 @@ import android.util.Base64;
 import android.util.Log;
 
 import com.mats.bluetooth.Model.Msg;
+import com.mats.bluetooth.listeners.NotificationListener;
 import com.mats.bluetooth.listeners.SmsListener;
-import com.mats.bluetooth.listeners.SmsListener.Listener;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -42,16 +42,16 @@ import java.util.Objects;
 import java.util.UUID;
 
 
-public class MasterService extends Service implements Listener {
+public class MasterService extends Service implements SmsListener.SmsListenerInterface, NotificationListener.NotificationListenerInterface {
 
     //    private final IBinder mBinder = new LocalBinder();
     private ArrayList<Msg> messages;
-    private Constants mConstants;
     final int handlerState = 0;                        //used to identify handler message
     private static Handler bluetoothIn;
     private int mState = Constants.STATE_NONE;
     private BluetoothAdapter btAdapter = null;
     private SmsListener mSmsListener;
+    private NotificationListener mNotificationListener;
     private static final String TAG = "MasterService";
     private ConnectingThread mConnectingThread;
     private ConnectedThread mConnectedThread;
@@ -67,6 +67,7 @@ public class MasterService extends Service implements Listener {
     private static String MAC_ADDRESS;
     private StringBuilder recDataString = new StringBuilder();
     private BroadcastReceiver intentReceiver;
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -80,7 +81,6 @@ public class MasterService extends Service implements Listener {
         if (intent != null && intent.getExtras() != null) {
 
             if ("REGISTER_RECEIVER".equals(intent.getAction())) {
-                Log.d("BT SERVICE", "REGISTERING RECEIVER");
                 mResultReceiver = intent.getParcelableExtra("ResultReceiver");
                 sendResult(mState);
 
@@ -102,14 +102,16 @@ public class MasterService extends Service implements Listener {
                     String action = intent.getAction();
                     BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                     if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
-                        if (mState != Constants.STATE_CONNECTING) {
+                        Log.d(TAG, "onReceive: ccccc :  " + device.getAddress());
+
+                        if (mState < Constants.STATE_CONNECTING) {
                             if (device.getAddress().equals(MAC_ADDRESS)) {
                                 Log.d(TAG, "onReceive: MATCHAR");
                                 checkBTState();
+                            } else {
+                                Log.d(TAG, "onReceive: device address: " + device.getAddress());
                             }
                         }
-                        Log.v(TAG, "connected: " + device);
-//                            }
                     } /*else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
                             Log.v(TAG, "disconnected: " + device);
                         } else if (BluetoothDevice.ACTION_FOUND.equals(action)) {
@@ -133,24 +135,22 @@ public class MasterService extends Service implements Listener {
 
         }
         return START_STICKY;
-//        return super.onStartCommand(intent, flags, startId);
     }
 
     private void init() {
 
         Intent notificationIntent = new Intent(this, MasterActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0,
-                notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-//                notificationIntent, 0);
+                notificationIntent, 0);
 
-        Notification notification = new NotificationCompat.Builder(this, "Android O")
-                .setSmallIcon(R.mipmap.ic_launcher)
+        Notification notification = new NotificationCompat.Builder(this, "ddd")
+                .setSmallIcon(R.drawable.icon)
+                .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.drawable.icon))
                 .setContentTitle("BT Master")
                 .setContentText("Waiting for stuff to do.")
                 .setContentIntent(pendingIntent).build();
         startForeground(1, notification);
         btAdapter = BluetoothAdapter.getDefaultAdapter();       // get Bluetooth adapter
-
         isHandlerRunning = false;
         bluetoothIn = new Handler() {
 
@@ -158,7 +158,7 @@ public class MasterService extends Service implements Listener {
                 if (msg.what == handlerState) {                 //if message is what we want
                     String readMessage = (String) msg.obj;      // msg.arg1 = bytes from connect thread
                     recDataString.append(readMessage);          // `enter code here`
-                    Log.d("RECORDED", recDataString.toString());
+//                    Log.d("RECORDED", recDataString.toString());
                     String message = recDataString.toString();
                     doStuff(message);
                     // Do stuff here with your data, like adding it to the database
@@ -170,6 +170,9 @@ public class MasterService extends Service implements Listener {
         mSmsListener = new SmsListener();
         mSmsListener.setListener(this);
         mRetryHandler = new Handler(Looper.getMainLooper());
+        mNotificationListener = new NotificationListener();
+        mNotificationListener.setListener(this);
+
         checkBTState();
         messages = new ArrayList<>();
     }
@@ -234,9 +237,15 @@ public class MasterService extends Service implements Listener {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        sendResult(Constants.TIMER_CANCEL);
+
         sendResult(Constants.STATE_NONE);
+        unregisterReceiver(intentReceiver);
+        mNotificationListener = null;
+        btAdapter = null;
+        mSmsListener = null;
+        mResultReceiver = null;
         doDestroy = true;
-//        bluetoothIn.removeCallbacksAndMessages(null);
         stopThread = true;
         isRunning = false;
         if (mConnectedThread != null) {
@@ -247,10 +256,7 @@ public class MasterService extends Service implements Listener {
             mConnectingThread.closeSocket();
             mConnectingThread = null;
         }
-        btAdapter = null;
-        mSmsListener = null;
-        mResultReceiver = null;
-        unregisterReceiver(intentReceiver);
+
         Log.d("SERVICE", "onDestroy");
     }
 
@@ -261,15 +267,6 @@ public class MasterService extends Service implements Listener {
         return null;
     }
 
-//    private void startListening(){
-//
-//        if (mSecureAcceptThread == null) {
-//            mSecureAcceptThread = new AcceptThread(true);
-//            mSecureAcceptThread.start();
-//            Log.d(TAG, "onStartCommand: STARTED");
-//        }
-//
-//    }
 
     //Checks that the Android device Bluetooth is available and prompts to be turned on if off
     private void checkBTState() {
@@ -317,40 +314,9 @@ public class MasterService extends Service implements Listener {
                 public void run() {
                     sendMessage();
                 }
-            }, 2000);
+            }, 4000);
         }
     }
-
-/*
-    public byte[] getBytesFromBitmap(Bitmap bitmap) {
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream);
-        return stream.toByteArray();
-    }
-
-
-    public static Bitmap drawableToBitmap (Drawable drawable) {
-        if (drawable instanceof BitmapDrawable) {
-            return ((BitmapDrawable)drawable).getBitmap();
-        }
-
-        Bitmap bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-        drawable.draw(canvas);
-
-        return bitmap;
-    }
-
-    public static InputStream bitmapToInputStream(Bitmap bitmap) {
-        int size = bitmap.getHeight() * bitmap.getRowBytes();
-        Log.d(TAG, "bitmapToInputStream: " + size);
-        ByteBuffer buffer = ByteBuffer.allocate(size);
-        bitmap.copyPixelsToBuffer(buffer);
-        return new ByteArrayInputStream(buffer.array());
-    }
-*/
-
 
     private void sendMessage() {
         messages.clear();
@@ -393,13 +359,12 @@ public class MasterService extends Service implements Listener {
                                 + Constants.THREAD_START + msg.getThread() + Constants.THREAD_STOP
                                 + Constants.DIRECTION_START + msg.getDirection() + Constants.DIRECTION_STOP
                                 + Constants.READ_START + msg.getRead() + Constants.READ_STOP);
-                        Log.d(TAG, "sendMessage: ID MMS " + msg.getID());
+//                        Log.d(TAG, "sendMessage: ID MMS " + msg.getID());
 
                     }
                     if (msg.hasImg()) {
                         ByteArrayOutputStream baos = new ByteArrayOutputStream();
                         Bitmap bm = msg.getImg();
-//                        Bitmap bm = BitmapFactory.decodeResource(getResources(), R.drawable.tiger);
 
                         int nh = (int) (bm.getHeight() * (400.0 / bm.getWidth()));
                         Bitmap scaled = Bitmap.createScaledBitmap(bm, 400, nh, true);
@@ -413,7 +378,7 @@ public class MasterService extends Service implements Listener {
                     if (!stopThread) {
                         mConnectedThread.write(Constants.ITEM_STOP + Constants.DELIMITER_STRING);
                     }
-                    Log.d(TAG, "sendMessage: " + j);
+//                    Log.d(TAG, "sendMessage: " + j);
                 }
                 j++;
 
@@ -424,8 +389,6 @@ public class MasterService extends Service implements Listener {
         }
 
     }
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
 
 
     public void scanMMS() {
@@ -439,11 +402,8 @@ public class MasterService extends Service implements Listener {
 
         if (c.moveToFirst()) {
             do {
-
                 System.out.println("--------------------MMS------------------");
                 Msg msg = new Msg(c.getString(c.getColumnIndex("_id")));
-
-                Log.d(TAG, "scanMMS: m TYPE EEEEEEEEEEEEEEEEEEEEEE " + Integer.parseInt(c.getString(c.getColumnIndex("m_type"))));
                 msg.setDirection("1");
                 msg.setType("MMS");
                 msg.setThread(c.getString(c.getColumnIndex("thread_id")));
@@ -452,7 +412,6 @@ public class MasterService extends Service implements Listener {
                 msg.setContact(getContactName(getMmsAddr(msg.getID())));
                 msg.setAddr(getMmsAddr(msg.getID()));
                 parseMMS(msg);
-//                System.out.println(msg.toString());
                 messages.add(msg);
             } while (c.moveToNext());
         }
@@ -506,7 +465,7 @@ public class MasterService extends Service implements Listener {
     }
 
     public String getMmsAddr(String id) {
-        String sel = new String("msg_id=" + id);
+        String sel = "msg_id=" + id;
         String uriString = MessageFormat.format("content://mms/{0}/addr", id);
         Uri uri = Uri.parse(uriString);
         Cursor c = getContentResolver().query(uri, null, sel, null, null);
@@ -525,13 +484,11 @@ public class MasterService extends Service implements Listener {
             }
         }
         c.close();
-//        Log.d(TAG, "getMmsAddr: " + name);
         return name;
     }
 
 
     public void scanSMS() {
-        System.out.println("==============================ScanSMS()==============================");
         //Initialize Box
         Uri uri = Uri.parse("content://sms");
         String[] proj = {"*"};
@@ -545,16 +502,10 @@ public class MasterService extends Service implements Listener {
 
         Log.d(TAG, "scanSMS: " + Arrays.toString(c.getColumnNames()));
         do {
-            System.out.println("--------------------SMS------------------");
             if (threads.size() > 0 && threads.contains(c.getString(c.getColumnIndex("thread_id")))) {
-                Log.d(TAG, "scanSMS: ThreadId fanns redan i arrayen ");
-
             } else {
-                Log.d(TAG, "scanSMS: thread id " + c.getString(c.getColumnIndex("thread_id")));
                 threads.add(c.getString(c.getColumnIndex("thread_id")));
-
             }
-
             Msg msg = new Msg(c.getString(c.getColumnIndex("_id")));
             msg.setType("SMS");
             msg.setDate(c.getString(c.getColumnIndex("date")));
@@ -584,14 +535,13 @@ public class MasterService extends Service implements Listener {
                     msg.setDirection(thread.getString(thread.getColumnIndex("type")));
                     msg.setContact(getContactName(thread.getString(thread.getColumnIndex("Address"))));
                     msg.setRead(getContactName(thread.getString(thread.getColumnIndex("read"))));
-//                        Log.d(TAG, "scanSMS: Read? " + msg.getRead());
                     boolean finnsEj = false;
 
                     for (int l = 0; l < messages.size(); l++) {
                         finnsEj = true;
                         if (msg.equals(messages.get(l))) {
                             finnsEj = false;
-                            Log.d(TAG, "scanSMS: Meddelandet fanns redan");
+//                            Log.d(TAG, "scanSMS: Meddelandet fanns redan");
                             break;
                         }
 
@@ -599,7 +549,7 @@ public class MasterService extends Service implements Listener {
 
                     if (finnsEj) {
                         messages.add(msg);
-                        Log.d(TAG, "scanSMS: Meddelandet tillagt i messages Array");
+//                        Log.d(TAG, "scanSMS: Meddelandet tillagt i messages Array");
                     }
                     k++;
 
@@ -617,28 +567,17 @@ public class MasterService extends Service implements Listener {
     }
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-
     private String getContactName(final String phoneNumber) {
-
-
         String out = phoneNumber;
-
         Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber));
-
         String[] projection = new String[]{ContactsContract.PhoneLookup.DISPLAY_NAME};
-
         String contactName = "";
         Cursor cursor = getContentResolver().query(uri, projection, null, null, null);
-
         if (cursor != null) {
             if (cursor.moveToFirst()) {
                 contactName = cursor.getString(0);
-//                Log.d(TAG, "getContactName: " + contactName);
             }
             cursor.close();
-//                    Log.d(TAG, "getContactName:" + contactName + ".");
             if (Objects.equals(contactName, "")) {
                 out = phoneNumber;
             } else {
@@ -646,11 +585,6 @@ public class MasterService extends Service implements Listener {
             }
         }
 
-//        else {
-//            checkPermission(getContext(), Manifest.permission.READ_CONTACTS);
-//
-//            out = phoneNumber;
-//        }
         return out;
     }
 
@@ -664,8 +598,6 @@ public class MasterService extends Service implements Listener {
     }
 
     private void doRetry() {
-        mState = Constants.STATE_NONE;
-        sendResult(mState);
         if (mConnectedThread != null) {
             mConnectedThread.closeStreams();
             mConnectedThread = null;
@@ -674,7 +606,12 @@ public class MasterService extends Service implements Listener {
             mConnectingThread.closeSocket();
             mConnectingThread = null;
         }
-        if (timesRetried <= 3 && !doDestroy && !isHandlerRunning) {
+        if (timesRetried <= 6 && !doDestroy && !isHandlerRunning) {
+            mState = Constants.STATE_WAITING;
+            sendResult(mState);
+            sendResult(Constants.TIMER_10);
+
+
             mRetryHandler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
@@ -690,8 +627,10 @@ public class MasterService extends Service implements Listener {
             isHandlerRunning = true;
 
 
-        } else if (timesRetried > 3 && !doDestroy && !isHandlerRunning) {
-
+        } else if (timesRetried > 6 && !doDestroy && !isHandlerRunning) {
+            mState = Constants.STATE_WAITING;
+            sendResult(mState);
+            sendResult(Constants.TIMER_60);
             Log.d(TAG, "doRetry, not Destroy > 3" + timesRetried);
             mRetryHandler.postDelayed(new Runnable() {
                 @Override
@@ -711,7 +650,12 @@ public class MasterService extends Service implements Listener {
 
             stopSelf();
         }
-//        }
+    }
+
+    @Override
+    public void onNotificationReceived(String string) {
+        mConnectedThread.write(Constants.START_STRING + Constants.NOTIFICATION + Constants.NOTIFICATION_START + string + Constants.NOTIFICATION_STOP + Constants.DELIMITER_STRING + Constants.STOP_STRING);
+        Log.d(TAG, "onNotificationReceived: " + string);
     }
 
     // New Class for Connecting Thread
@@ -726,14 +670,9 @@ public class MasterService extends Service implements Listener {
             Log.d("DEBUG BT", "IN CONNECTING THREAD");
             mmDevice = device;
             BluetoothSocket temp = null;
-            Log.d("DEBUG BT", "MAC ADDRESS : " + MAC_ADDRESS);
-            Log.d("DEBUG BT", "BT UUID : " + BTMODULEUUID);
             try {
                 temp = mmDevice.createRfcommSocketToServiceRecord(BTMODULEUUID);
-                Log.d("DEBUG BT", "SOCKET CREATED : " + temp.toString());
             } catch (IOException e) {
-                Log.d("DEBUG BT", "SOCKET CREATION FAILED :" + e.toString());
-                Log.d("BT SERVICE", "SOCKET CREATION FAILED, STOPPING SERVICE");
                 stopSelf();
             }
             mmSocket = temp;
@@ -748,22 +687,16 @@ public class MasterService extends Service implements Listener {
             btAdapter.cancelDiscovery();
             try {
                 mmSocket.connect();
-                Log.d("DEBUG BT", "BT SOCKET CONNECTED");
                 mConnectedThread = new ConnectedThread(mmSocket);
                 mConnectedThread.start();
-                Log.d("DEBUG BT", "CONNECTED THREAD STARTED");
-//                mConnectedThread.write("x");
-//                sendMessage();
             } catch (IOException e) {
                 try {
-                    Log.d("DEBUG BT", "SOCKET CONNECTION FAILED : " + e.toString());
-                    Log.d("BT SERVICE", "SOCKET CONNECTION FAILED, STOPPING SERVICE");
                     mmSocket.close();
                     isRunning = false;
                     if (!isHandlerRunning) {
                         doRetry();
                     } else {
-                        Log.d(TAG, "run1: not retry");
+                        Log.d(TAG, "Handler already running");
                     }
                 } catch (IOException e2) {
                     Log.d("DEBUG BT", "SOCKET CLOSING FAILED :" + e2.toString());
@@ -813,7 +746,7 @@ public class MasterService extends Service implements Listener {
                 if (!isHandlerRunning) {
                     doRetry();
                 } else {
-                    Log.d(TAG, "run2: not retry");
+                    Log.d(TAG, "Handler körs redan");
                 }
             }
 
@@ -822,11 +755,9 @@ public class MasterService extends Service implements Listener {
         }
 
         public void run() {
-            timesRetried = 0;
             mRetryHandler.removeCallbacksAndMessages(null);
             stopThread = false;
             isRunning = true;
-
             Log.d("DEBUG BT", "IN CONNECTED THREAD RUN");
             byte[] buffer = new byte[Constants.BUFFERSIZE];
             int bytes;
@@ -839,7 +770,6 @@ public class MasterService extends Service implements Listener {
                 try {
                     bytes = mmInStream.read(buffer);            //read bytes from input buffer
                     String readMessage = new String(buffer, 0, bytes);
-                    Log.d("DEBUG BT PART", "CONNECTED THREAD " + readMessage);
                     // Send the obtained bytes to the UI Activity via handler
                     bluetoothIn.obtainMessage(handlerState, bytes, -1, readMessage).sendToTarget();
                 } catch (IOException e) {
@@ -850,7 +780,7 @@ public class MasterService extends Service implements Listener {
                         stopThread = true;
                         doRetry();
                     } else {
-                        Log.d(TAG, "run3: not retry");
+                        Log.d(TAG, "Handler körs redan");
                     }
                     break;
                 }
@@ -860,10 +790,7 @@ public class MasterService extends Service implements Listener {
         //write method
         public void write(String input) {
 
-
             InputStream stream = new ByteArrayInputStream(input.getBytes());
-
-
             byte[] buffer = new byte[8192];
             int len;
             try {
@@ -878,9 +805,7 @@ public class MasterService extends Service implements Listener {
         }
 
         public void write(InputStream input) {
-
             InputStream inputStream = input;
-
             byte[] buffer = new byte[8192];
             int len;
             try {
@@ -907,5 +832,4 @@ public class MasterService extends Service implements Listener {
             }
         }
     }
-
 }

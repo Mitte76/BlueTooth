@@ -4,9 +4,9 @@
     android:layout_height="wrap_content">
 
     <!-- Swipe Layout-->
-    <include layout="@layout/swipe_row_item" />
+    <include layout="@layout/sms_swipe_row_item" />
 
     <!-- Regular Layout-->
-    <include layout="@layout/regular_row_item" />
+    <include layout="@layout/sms_regular_row_item" />
 
 </FrameLayout>

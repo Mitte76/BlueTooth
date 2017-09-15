@@ -46,7 +46,7 @@
 //import android.widget.TextView;
 //import android.widget.Toast;
 //
-//import com.mats.bluetooth.listeners.SmsListener.Listener;
+//import com.mats.bluetooth.listeners.SmsListener.SmsListenerInterface;
 //
 //import java.util.ArrayList;
 //
@@ -54,7 +54,7 @@
 ///**
 // * This fragment controls Bluetooth to communicate with other devices.
 // */
-//public class MasterFragment extends Fragment implements Listener {
+//public class MasterFragment extends Fragment implements SmsListenerInterface {
 //
 //    private static final String TAG = "MasterFragment";
 //    private String SLAVE_MAC;
@@ -104,7 +104,7 @@
 //    private BluetoothService mChatService = null;
 //
 //    /**
-//     * Listener for new sms
+//     * SmsListenerInterface for new sms
 //     */
 //
 //

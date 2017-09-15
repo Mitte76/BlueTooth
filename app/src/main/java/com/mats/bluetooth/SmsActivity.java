@@ -7,7 +7,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.database.Cursor;
 import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -27,7 +26,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.mats.bluetooth.Adapter.RVAdapter;
+import com.mats.bluetooth.Adapter.SmsThreadsAdapter;
 import com.mats.bluetooth.DbHelper.Database;
 import com.mats.bluetooth.Dialog.AddingTaskDialogFragment2;
 import com.mats.bluetooth.Helper.SwipeUtil;
@@ -39,19 +38,13 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
     private Database dbHelper;
     private TextView toolbarText;
     private static final String TAG = "SmsActivity";
-    private ListView mListView;
-    private ImageView mImageView, toolbarStatusImg;
+    private ImageView  toolbarStatusImg;
 
     private RecyclerView mRecyclerView;
-    private ArrayAdapter<String> mMessageArrayAdapter;
-    private ArrayList<String> mMessageNumberArray;
-    private ArrayList<String> mMessageUserArray;
 
     private BluetoothAdapter mBluetoothAdapter = null;
-//    private SharedPreferences sharedpreferences;
 
     private static final int REQUEST_ENABLE_BT = 3;
-    //    public static final String MYPREFERENCES = "BtPrefs";
 
 
     @Override
@@ -156,12 +149,12 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
 //            // The Cursor is now set to the right position
 //            dataList.add(cursor.getString(cursor.getColumnIndex(Database.KEY_MESSAGE)));
 //        }
-        RVAdapter rvAdapter = new RVAdapter(dbHelper.getFirstThreadMsg());
+        SmsThreadsAdapter smsThreadsAdapter = new SmsThreadsAdapter(dbHelper.getFirstThreadMsg());
         if (mRecyclerView == null) {
             mRecyclerView = findViewById(R.id.recyclerView);
-            mRecyclerView.setAdapter(rvAdapter);
+            mRecyclerView.setAdapter(smsThreadsAdapter);
         } else {
-            mRecyclerView.setAdapter(rvAdapter);
+            mRecyclerView.setAdapter(smsThreadsAdapter);
         }
 
 
@@ -207,14 +200,14 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
             @Override
             public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
                 int swipedPosition = viewHolder.getAdapterPosition();
-                RVAdapter adapter = (RVAdapter) mRecyclerView.getAdapter();
+                SmsThreadsAdapter adapter = (SmsThreadsAdapter) mRecyclerView.getAdapter();
                 adapter.pendingRemoval(swipedPosition);
             }
 
             @Override
             public int getSwipeDirs(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
                 int position = viewHolder.getAdapterPosition();
-                RVAdapter adapter = (RVAdapter) mRecyclerView.getAdapter();
+                SmsThreadsAdapter adapter = (SmsThreadsAdapter) mRecyclerView.getAdapter();
                 if (adapter.isPendingRemoval(position)) {
                     return 0;
                 }
@@ -356,11 +349,6 @@ public class SmsActivity extends AppCompatActivity implements AddingTaskDialogFr
 
     private void init() {
         mRecyclerView = findViewById(R.id.recyclerView);
-//        mListView = findViewById(R.id.in);
-        mImageView = findViewById(R.id.imageView);
-        mMessageArrayAdapter = new ArrayAdapter<>(this, R.layout.message);
-        mMessageNumberArray = new ArrayList<>();
-        mMessageUserArray = new ArrayList<>();
         LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
         linearLayoutManager.setOrientation(LinearLayoutManager.VERTICAL);
         mRecyclerView.setLayoutManager(linearLayoutManager);

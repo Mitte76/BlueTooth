@@ -9,13 +9,16 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
+import android.graphics.BitmapFactory;
 import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.os.ResultReceiver;
 import android.util.Log;
+
 import com.mats.bluetooth.DbHelper.Database;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -44,6 +47,7 @@ public class SlaveService extends Service {
     public static final int STATE_CONNECTING = 2; // now initiating an outgoing connection
     public static final int STATE_CONNECTED = 3;  // now connected to a remote device
     private int turns;
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -60,13 +64,16 @@ public class SlaveService extends Service {
         if (intent != null) {
 
             if ("REGISTER_RECEIVER".equals(intent.getAction())) {
-                mResultReceiver = intent.getParcelableExtra("ResultReceiver");
+                if (mConnectedThread != null){
+                    mState = Constants.STATE_CONNECTED;
+                }
+
+                    mResultReceiver = intent.getParcelableExtra("ResultReceiver");
                 sendResult(mState);
                 Log.d("BT SERVICE", "REGISTERING RECEIVER");
-
             } else if ("UNREGISTER_RECEIVER".equals(intent.getAction())) {
                 mResultReceiver = null;
-            }else if ("SEND_MESSAGE".equals(intent.getAction())) {
+            } else if ("SEND_MESSAGE".equals(intent.getAction())) {
                 String message = intent.getStringExtra("MESSAGE_TEXT");
                 String number = intent.getStringExtra("MESSAGE_NUMBER");
                 sendMessage(message, number, null, "SMS");
@@ -101,55 +108,23 @@ public class SlaveService extends Service {
                 notificationIntent, 0);
 
         Notification notification = new NotificationCompat.Builder(this, "Android O")
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.icon)
+                .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.drawable.icon))
                 .setContentTitle("BT Slave")
                 .setContentText("Waiting for stuff to do.")
                 .setContentIntent(pendingIntent).build();
         startForeground(1, notification);
 
-        /*isRunning = true;
-        bluetoothIn = new Handler() {
-
-            public void handleMessage(android.os.Message msg) {
-                if (msg.what == handlerState) {                 //if message is what we want
-                    String readMessage = (String) msg.obj;      // msg.arg1 = bytes from connect thread
-                    recDataString.append(readMessage);
-                    // Do stuff here with your data, like adding it to the database
-                }
-
-                if (recDataString.toString().contains("[END12:12:12]")){
-                    Log.d(TAG, "handleMessage: Slut: " + recDataString.toString());
-                    sortMessage();
-                } else {
-
-                }
-
-
-//                if (recDataString.toString().contains("[END12:12:12]") && smallMessage) {
-//                    Log.d(TAG, "handleMessage: " + recDataString);
-//                    sortMessage(recDataString.toString());
-//                    recDataString.delete(0, recDataString.length());                    //clear all string data
-//                    Log.d(TAG, "handleMessage: " + fullMsg.toString());
-//
-//                } else if (recDataString.toString().contains("[END12:12:12]") && !smallMessage){
-//                    sortMessage(fullMsg.toString());
-//                    Log.d(TAG, "handleMessage: " + fullMsg.toString());
-//
-//                } else {
-//                    smallMessage = false;
-//                    fullMsg.append(recDataString.toString()) ;
-//                }
-
-            }
-        };
-*/
         startListening();
 
 
     }
+
     private void sendResult(int number) {
-        if (mResultReceiver != null)
+        if (mResultReceiver != null) {
             mResultReceiver.send(number, null);
+            Log.d(TAG, "sendResult: " + number);
+        }
     }
 
     private void assembleBTMessage(String message) {
@@ -157,7 +132,9 @@ public class SlaveService extends Service {
         fullString = fullString + message;
 
         if (fullString.contains(Constants.START_STRING) && fullString.contains(Constants.STOP_STRING)) {
-            dbHelper.prepareSms();
+//            if (fullString.contains(Constants.SMS)) {
+//                dbHelper.prepareSms();
+//            }
             fullString = fullString.replace(Constants.START_STRING, "");
             List<String> stuff = new ArrayList<>(Arrays.asList(fullString.split(Constants.DELIMITER_STRING)));
             if (stuff.size() > 0) {
@@ -172,10 +149,12 @@ public class SlaveService extends Service {
                 } while (i < stuff.size());
             }
             fullString = "";
-            dbHelper.deleteSms();
+
         }
 
-
+//        if (fullString.contains(Constants.SMS)) {
+//            dbHelper.deleteSms();
+//        }
 /*
 
 
@@ -299,54 +278,10 @@ public class SlaveService extends Service {
 
     }
 
-    private void sendMessage(String message, String number, String id, String action) {
-
-        if (Objects.equals(action, "MARK_READ")) {
-            mConnectedThread.write("(MRKRED)" + "(NUMBER" + number + "NUMBER)" + "(" + id + "ID)" + "(" + message + "MESSAGE)");
-
-        } else if (Objects.equals(action, "SMS")) {
-            mConnectedThread.write("(SNDSMS)" + "(NUMBER" + number + "NUMBER)" + "(MESSAGE" + message + "MESSAGE)");
-
-        }
-
-    }
-
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        mState = STATE_NONE;
-        sendResult(mState);
-        doDestroy = true;
-
-//        Log.d(TAG, "onDestroy: " + btAdapter.getScanMode());
-//        bluetoothIn.removeCallbacksAndMessages(null);
-        stopThread = true;
-        if (mSecureAcceptThread != null) {
-            mSecureAcceptThread.cancel();
-            mSecureAcceptThread = null;
-        }
-        if (mConnectedThread != null) {
-            mConnectedThread.closeStreams();
-            mConnectedThread = null;
-        }
-
-        btAdapter = null;
-        Log.d("SERVICE", "onDestroy");
-
-        stopSelf();
-    }
-
-    @Nullable
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
-
 
     private void sortMessage(String inMessage) {
 
-        if ((inMessage.substring(0, 5).contains(Constants.MMS) || (inMessage.substring(0, 5).contains(Constants.SMS)))) {
+        if ((inMessage.substring(0, Constants.MMS.length()).contains(Constants.MMS) || (inMessage.substring(0, Constants.SMS.length()).contains(Constants.SMS)))) {
             String type = "SMS";
             if (inMessage.substring(0, 5).contains(Constants.MMS)) {
                 type = "MMS";
@@ -384,9 +319,61 @@ public class SlaveService extends Service {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             intent.setAction("REFRESH");
             startActivity(intent);
+        } else if ((inMessage.substring(0, Constants.NOTIFICATION.length()).contains(Constants.NOTIFICATION))) {
+            String message = inMessage.substring(inMessage.indexOf(Constants.NOTIFICATION_START) + Constants.NOTIFICATION_START.length(), inMessage.indexOf(Constants.NOTIFICATION_STOP));
+
+            dbHelper.addNotification(message);
+            Log.d(TAG, "sortMessage: " + dbHelper.getNotifications().getCount());
+
+        } else {
+            Log.d(TAG, "sortMessage: WTF! " + inMessage);
         }
 
     }
+
+
+
+    private void sendMessage(String message, String number, String id, String action) {
+
+        if (Objects.equals(action, "MARK_READ")) {
+            mConnectedThread.write("(MRKRED)" + "(NUMBER" + number + "NUMBER)" + "(" + id + "ID)" + "(" + message + "MESSAGE)");
+
+        } else if (Objects.equals(action, "SMS")) {
+            mConnectedThread.write("(SNDSMS)" + "(NUMBER" + number + "NUMBER)" + "(MESSAGE" + message + "MESSAGE)");
+
+        }
+
+    }
+
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mState = STATE_NONE;
+        sendResult(mState);
+        doDestroy = true;
+        stopThread = true;
+        if (mSecureAcceptThread != null) {
+            mSecureAcceptThread.cancel();
+            mSecureAcceptThread = null;
+        }
+        if (mConnectedThread != null) {
+            mConnectedThread.closeStreams();
+            mConnectedThread = null;
+        }
+
+        btAdapter = null;
+        Log.d("SERVICE", "onDestroy");
+
+        stopSelf();
+    }
+
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+
 
     private boolean isMyServiceRunning() {
         ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
@@ -399,13 +386,9 @@ public class SlaveService extends Service {
     }
 
 
-
-
-
-
     private void startListening() {
 
-            sendResult(mState);
+        sendResult(mState);
 
         if (mConnectedThread != null) {
             mConnectedThread.closeStreams();
@@ -424,6 +407,8 @@ public class SlaveService extends Service {
     public synchronized void connected(BluetoothSocket socket, BluetoothDevice
             device, final String socketType) {
         Log.d(TAG, "connected, Socket Type:" + socketType);
+        mState=Constants.STATE_CONNECTED;
+        sendResult(mState);
 
         // Cancel any thread currently running a connection
         if (mConnectedThread != null) {
@@ -441,80 +426,7 @@ public class SlaveService extends Service {
         // Start the thread to manage the connection and perform transmissions
         mConnectedThread = new ConnectedThread(socket);
         mConnectedThread.start();
-
-
     }
-
-
-/*    // New Class for Connecting Thread
-    private class ConnectingThread extends Thread {
-        private final BluetoothSocket mmSocket;
-        private final BluetoothDevice mmDevice;
-
-        public ConnectingThread(BluetoothDevice device) {
-            Log.d("DEBUG BT", "IN CONNECTING THREAD");
-            mmDevice = device;
-            BluetoothSocket temp = null;
-            Log.d("DEBUG BT", "MAC ADDRESS : " + MAC_ADDRESS);
-            Log.d("DEBUG BT", "BT UUID : " + BTMODULEUUID);
-            try {
-                temp = mmDevice.createRfcommSocketToServiceRecord(BTMODULEUUID);
-                Log.d("DEBUG BT", "SOCKET CREATED : " + temp.toString());
-            } catch (IOException e) {
-                Log.d("DEBUG BT", "SOCKET CREATION FAILED :" + e.toString());
-                Log.d("BT SERVICE", "SOCKET CREATION FAILED, STOPPING SERVICE");
-                stopSelf();
-            }
-            mmSocket = temp;
-        }
-
-        @Override
-        public void run() {
-            super.run();
-            Log.d("DEBUG BT", "IN CONNECTING THREAD RUN");
-            // Establish the Bluetooth socket connection.
-            // Cancelling discovery as it may slow down connection
-            btAdapter.cancelDiscovery();
-            try {
-                mmSocket.connect();
-                Log.d("DEBUG BT", "BT SOCKET CONNECTED");
-                mConnectedThread = new ConnectedThread(mmSocket);
-                mConnectedThread.start();
-                Log.d("DEBUG BT", "CONNECTED THREAD STARTED");
-                //I send a character when resuming.beginning transmission to check device is connected
-                //If it is not an exception will be thrown in the write method and finish() will be called
-                mConnectedThread.write("x");
-            } catch (IOException e) {
-                try {
-                    Log.d("DEBUG BT", "SOCKET CONNECTION FAILED : " + e.toString());
-                    Log.d("BT SERVICE", "SOCKET CONNECTION FAILED, STOPPING SERVICE");
-                    mmSocket.close();
-                    stopSelf();
-                } catch (IOException e2) {
-                    Log.d("DEBUG BT", "SOCKET CLOSING FAILED :" + e2.toString());
-                    Log.d("BT SERVICE", "SOCKET CLOSING FAILED, STOPPING SERVICE");
-                    stopSelf();
-                    //insert code to deal with this
-                }
-            } catch (IllegalStateException e) {
-                Log.d("DEBUG BT", "CONNECTED THREAD START FAILED : " + e.toString());
-                Log.d("BT SERVICE", "CONNECTED THREAD START FAILED, STOPPING SERVICE");
-                stopSelf();
-            }
-        }
-
-        public void closeSocket() {
-            try {
-                //Don't leave Bluetooth sockets open when leaving activity
-                mmSocket.close();
-            } catch (IOException e2) {
-                //insert code to deal with this
-                Log.d("DEBUG BT", e2.toString());
-                Log.d("BT SERVICE", "SOCKET CLOSING FAILED, STOPPING SERVICE");
-                stopSelf();
-            }
-        }
-    }*/
 
     int totalBytes;
     public static Handler myHandler = new Handler();
@@ -543,8 +455,6 @@ public class SlaveService extends Service {
 
             mmInStream = tmpIn;
             mmOutStream = tmpOut;
-            mState = STATE_CONNECTED;
-            sendResult(mState);
         }
 
         public void run() {
