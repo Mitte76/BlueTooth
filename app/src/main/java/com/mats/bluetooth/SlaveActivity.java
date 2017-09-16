@@ -273,7 +273,7 @@ public class SlaveActivity extends AppCompatActivity {
         }
 
         notificationText.setText(String.valueOf(dbHelper.getNotifications().getCount()));
-        if (dbHelper.getFirstThreadMsg() != null){
+        if (dbHelper.getNotifications() != null){
             notificationImage.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
